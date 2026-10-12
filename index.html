@@ -1,0 +1,1618 @@
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DestinyMetrics — Destiny Church</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1a202c; --muted:#64748b; --line:#e2e8f0;
+    --accent:#4f46e5; --accent-soft:#eef2ff; --green:#059669; --red:#dc2626;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); font-size:14px}
+  header{background:var(--card); border-bottom:1px solid var(--line); padding:0 20px; display:flex; align-items:center; gap:20px; position:sticky; top:0; z-index:10}
+  header h1{font-size:17px; padding:14px 0; letter-spacing:-.3px}
+  header h1 span{color:var(--accent)}
+  header .who{margin-left:auto; color:var(--muted); font-size:12.5px; display:flex; align-items:center; gap:10px}
+  nav{display:flex; gap:4px}
+  nav button{border:0; background:none; padding:16px 14px; font-size:14px; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; font-weight:500}
+  nav button.active{color:var(--accent); border-bottom-color:var(--accent)}
+  nav button:hover{color:var(--ink)}
+  main{max-width:1200px; margin:0 auto; padding:24px 20px 80px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:18px}
+  .card h2{font-size:15px; margin-bottom:12px}
+  .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+  .grow{flex:1}
+  button.btn{background:var(--accent); color:#fff; border:0; border-radius:7px; padding:8px 16px; font-size:14px; cursor:pointer; font-weight:500}
+  button.btn:hover{filter:brightness(1.1)}
+  button.btn.ghost{background:var(--card); color:var(--ink); border:1px solid var(--line)}
+  button.btn.ghost:hover{background:var(--bg); filter:none}
+  button.btn.danger{background:#fff; color:var(--red); border:1px solid #fecaca}
+  button.btn.sm{padding:5px 10px; font-size:13px}
+  button.btn:disabled{opacity:.5; cursor:default}
+  select,input[type=date],input[type=text],input[type=email],input[type=password]{padding:7px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; background:#fff; color:var(--ink)}
+  .weeknav{display:flex; align-items:center; gap:8px}
+  .weeknav .wk{font-weight:600; min-width:170px; text-align:center}
+  .entry-tools{display:flex; align-items:center; gap:12px}
+  table.grid{width:100%; border-collapse:collapse}
+  table.grid th{font-size:11.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:600; padding:8px 6px; border-bottom:2px solid var(--line); text-align:center; background:var(--card)}
+  table.grid th:first-child,table.grid th:nth-child(2){text-align:left}
+  table.grid td{padding:4px 4px; border-bottom:1px solid var(--line)}
+  table.grid td.campus{font-weight:700; white-space:nowrap; padding:10px 6px 4px; font-size:14px}
+  table.grid td.svc{color:var(--muted); white-space:nowrap; padding-left:6px; font-size:13px}
+  table.grid input{width:100%; min-width:64px; padding:8px 6px; border:1px solid transparent; border-radius:6px; font-size:15px; text-align:center; background:#fafbfc}
+  table.grid input:hover:not(:disabled){border-color:var(--line)}
+  table.grid input:focus{outline:none; border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px var(--accent-soft)}
+  table.grid input:disabled{background:transparent; color:var(--muted)}
+  table.grid tr.subtotal td{background:var(--accent-soft); font-weight:600; text-align:center; padding:7px 6px; font-size:13.5px; color:var(--accent)}
+  table.grid tr.subtotal td:first-child{text-align:right; padding-right:10px}
+  table.grid tr.totals td{border-bottom:0; border-top:2px solid var(--ink); font-weight:700; text-align:center; padding:10px 6px; font-size:15px}
+  table.grid tr.totals td:first-child{text-align:left}
+  .metric-group{font-size:10px; color:var(--muted); display:block; font-weight:400}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:18px}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px}
+  .stat .lbl{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px}
+  .stat .val{font-size:26px; font-weight:700; margin:4px 0 2px; letter-spacing:-.5px}
+  .stat .delta{font-size:12.5px; font-weight:600}
+  .delta.up{color:var(--green)} .delta.down{color:var(--red)} .delta.flat{color:var(--muted)}
+  .chartbox{position:relative; height:300px}
+  .chartbox.short{height:240px}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  @media(max-width:820px){.two{grid-template-columns:1fr}}
+  .campus-card{border:1px solid var(--line); border-radius:9px; padding:14px; margin-bottom:12px}
+  .campus-card .head{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+  .campus-card .head .name{flex:1; font-weight:700; font-size:14.5px}
+  .svc-chip{display:inline-flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:4px 6px 4px 12px; font-size:13px; margin:0 6px 6px 0}
+  .svc-chip button{border:0; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; padding:2px 4px}
+  .svc-chip button:hover{color:var(--red)}
+  .menu-wrap{position:relative}
+  .menu{position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--line); border-radius:9px; box-shadow:0 8px 24px rgba(15,23,42,.14); display:none; min-width:170px; z-index:60; overflow:hidden}
+  .menu.open{display:block}
+  .menu button{display:block; width:100%; min-height:44px; text-align:left; padding:10px 16px; border:0; background:none; font-size:14px; cursor:pointer; color:var(--ink)}
+  .menu button:hover,.menu button:focus-visible{background:var(--bg); outline:none}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 20px; border-radius:8px; font-size:13.5px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50}
+  .toast.show{opacity:.95}
+  .toast.err{background:var(--red)}
+  .hint{font-size:12.5px; color:var(--muted); margin-top:10px}
+  .savestate{font-size:12.5px; color:var(--green); font-weight:600; min-width:90px; text-align:right}
+  .save-wrap{display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:32px}
+  .savestate.saving{color:var(--muted)}
+  .savestate.error{color:var(--red)}
+  .retry-save{display:none}
+  .table-scroll{overflow-x:auto; max-width:100%; -webkit-overflow-scrolling:touch}
+  .info-btn{display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; margin-left:5px; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--card); color:var(--muted); font:italic 700 11px/1 Georgia,serif; text-transform:none; letter-spacing:0; cursor:pointer; vertical-align:middle; position:relative}
+  .info-btn::after{content:""; position:absolute; inset:-10px}
+  .info-btn:hover,.info-btn:focus-visible,.info-btn[aria-expanded=true]{border-color:var(--accent); color:var(--accent); outline:none}
+  .src-pop{position:absolute; z-index:70; width:320px; max-width:calc(100vw - 20px); background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(15,23,42,.18); padding:14px 16px; font-size:13px; line-height:1.45; display:none}
+  .src-pop.open{display:block}
+  .src-pop h3{font-size:13.5px; margin-bottom:6px; padding-right:22px}
+  .src-pop p{color:var(--muted); margin-bottom:8px}
+  .src-pop .crumb{font-weight:600; color:var(--ink); margin-bottom:8px}
+  .src-pop .crumb span{color:var(--muted); font-weight:400; margin:0 3px}
+  .src-pop .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:3px}
+  .src-pop ul{list-style:none; padding:0}
+  .src-pop li{margin:3px 0}
+  .src-pop a,.src-pop button.link{color:var(--accent); background:none; border:0; padding:0; font-size:13px; cursor:pointer; text-decoration:underline; text-align:left}
+  .src-pop .x{position:absolute; top:8px; right:10px; border:0; background:none; font-size:18px; line-height:1; color:var(--muted); cursor:pointer; padding:4px}
+  .pill{background:var(--accent-soft); color:var(--accent); border-radius:20px; padding:2px 10px; font-size:12px; font-weight:600}
+  .empty{text-align:center; color:var(--muted); padding:40px 0}
+  textarea.csv{width:100%; height:120px; font-family:ui-monospace,monospace; font-size:12px; border:1px solid var(--line); border-radius:7px; padding:10px}
+  /* login */
+  #login{position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100}
+  #login .box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:32px; width:340px}
+  #login h1{font-size:20px; margin-bottom:4px}
+  #login h1 span{color:var(--accent)}
+  #login p{color:var(--muted); font-size:13px; margin-bottom:18px}
+  #login input{width:100%; margin-bottom:10px}
+  #login button{width:100%; padding:10px}
+  #login .err{color:var(--red); font-size:13px; margin-top:10px; min-height:18px}
+  /* users table */
+  table.users{width:100%; border-collapse:collapse}
+  table.users th{text-align:left; font-size:11.5px; text-transform:uppercase; color:var(--muted); padding:8px 6px; border-bottom:2px solid var(--line)}
+  table.users td{padding:8px 6px; border-bottom:1px solid var(--line); font-size:13.5px}
+  table.users label{margin-right:14px; white-space:nowrap}
+  @media(max-width:700px){
+    body{font-size:14px; overflow-x:hidden}
+    header{padding:0 12px; gap:8px; flex-wrap:wrap; align-items:center}
+    header h1{font-size:16px; padding:11px 0; flex:1}
+    header .who{margin-left:0}
+    header .who #whoami{display:none}
+    nav{order:3; width:100%; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; border-top:1px solid var(--line)}
+    nav button{min-height:48px; padding:8px 3px; font-size:12px; line-height:1.15; white-space:normal}
+    main{padding:14px 10px 72px}
+    .card{padding:12px; margin-bottom:12px}
+    button.btn,button.btn.sm,select,input[type=date],input[type=text],input[type=email],input[type=password]{min-height:44px; font-size:16px}
+    button.btn.sm{padding:9px 12px}
+    .entry-toolbar{align-items:stretch!important}
+    .weeknav{width:100%; display:grid; grid-template-columns:44px 1fr 44px; gap:6px}
+    .weeknav .wk{min-width:0; align-self:center}
+    .weeknav input[type=date]{grid-column:1/-1; width:100%}
+    .entry-tools{width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px}
+    .entry-tools label{display:flex; align-items:center; gap:6px}
+    .entry-tools select{min-width:0; width:100%}
+    .save-wrap{grid-column:1/-1; justify-content:space-between}
+    .filter-row{align-items:stretch!important}
+    .filter-row label{display:grid; gap:5px; flex:1 1 145px}
+    .filter-row label select{width:100%; margin-left:0!important}
+    .filter-row .check-label{display:flex; align-items:center; min-height:44px}
+    .filter-row .view-summary{width:100%; margin-left:0!important; line-height:1.45}
+    table.grid{min-width:650px}
+    table.grid input{min-height:44px; font-size:16px}
+    table.grid th:first-child,table.grid td:first-child{position:sticky; left:0; z-index:2; background:var(--card); min-width:92px}
+    table.grid th:nth-child(2),table.grid td:nth-child(2){position:sticky; left:92px; z-index:2; background:var(--card); min-width:82px; box-shadow:2px 0 0 var(--line)}
+    table.grid th{z-index:3!important}
+    table.grid tr.subtotal td,table.grid tr.totals td{position:static; box-shadow:none}
+    .chartbox{height:260px}.chartbox.short{height:230px}
+    .cards{grid-template-columns:1fr 1fr; gap:8px}
+    .stat{padding:12px}.stat .val{font-size:22px}
+    .toast{bottom:14px; max-width:calc(100vw - 24px); width:max-content; text-align:center}
+    #login{padding:12px}
+    #login .box{width:100%; max-width:340px; padding:24px}
+    #login input,#login button{min-height:44px}
+    .campus-card .head{align-items:flex-start; flex-wrap:wrap}
+    .row input.grow{min-width:100%}
+  }
+  @media(max-width:360px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="box">
+    <h1>Destiny<span>Metrics</span></h1>
+    <p>Destiny Church weekend metrics</p>
+    <input type="email" id="liEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="liPass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signIn()">
+    <button class="btn" id="liBtn" onclick="signIn()">Sign in</button>
+    <div class="err" id="liErr"></div>
+    <p class="hint" style="margin-top:6px">Accounts are created by your admin.</p>
+  </div>
+</div>
+
+<header style="display:none" id="topbar">
+  <h1>Destiny<span>Metrics</span></h1>
+  <nav>
+    <button data-view="dash" class="active" onclick="show('dash')">Dashboard</button>
+    <button data-view="vols" onclick="show('vols')">Volunteers</button>
+    <button data-view="next" onclick="show('next')">Next Steps</button>
+    <button data-view="entry" onclick="show('entry')">Enter Counts</button>
+  </nav>
+  <div class="who">
+    <span id="whoami"></span>
+    <button class="btn ghost sm" id="refreshBtn" onclick="refreshAll()" title="Reload the latest numbers from the database" aria-label="Refresh data">↻ Refresh</button>
+    <div class="menu-wrap">
+      <button class="btn ghost sm" id="menuBtn" onclick="toggleMenu(event)" aria-label="Open account menu" aria-expanded="false" aria-controls="menu">☰</button>
+      <div class="menu" id="menu">
+        <button onclick="show('settings')">Setup &amp; Data</button>
+        <button onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main style="display:none" id="app">
+  <!-- ============ ENTRY ============ -->
+  <section id="view-entry">
+    <div class="card">
+      <div class="row entry-toolbar" style="justify-content:space-between">
+        <div class="weeknav">
+          <button class="btn ghost sm" onclick="stepWeek(-1)">←</button>
+          <span class="wk" id="weekLabel"></span>
+          <button class="btn ghost sm" onclick="stepWeek(1)">→</button>
+          <input type="date" id="weekPicker" onchange="pickWeek(this.value)">
+        </div>
+        <div class="entry-tools">
+          <label>Campus <select id="entryCampusSel" onchange="setEntryCampus(this.value)"></select></label>
+          <div class="save-wrap">
+            <span class="savestate" id="saveState"></span>
+            <button class="btn danger sm retry-save" id="retrySave" onclick="retryPendingSaves()">Retry saves</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-scroll">
+        <table class="grid" id="entryGrid"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table>
+      </div>
+      <p class="hint" id="entryHint">The whole week on one screen. <b>Enter</b> moves down, <b>Tab</b> moves across. On a phone, swipe the metrics table sideways; Campus and Service stay visible. Everything autosaves to the shared database.</p>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section id="view-dash" style="display:none">
+    <div class="card">
+      <div class="row">
+        <label>Range
+          <select id="rangeSel" onchange="renderDash()" style="margin-left:6px">
+            <option value="8">Last 8 weeks</option>
+            <option value="13" selected="">Last 13 weeks</option>
+            <option value="26">Last 26 weeks</option>
+            <option value="52">Last 52 weeks</option>
+          </select>
+        </label>
+        <label>Campus
+          <select id="campusSel" onchange="renderDash()" style="margin-left:6px"></select>
+        </label>
+      </div>
+    </div>
+    <div class="cards" id="statCards"></div>
+    <div class="card">
+      <h2>Total attendance by week <span class="pill">sanctuary + kids · stacked by campus</span><button type="button" class="info-btn" onclick="showSource(event,'attend')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="chartbox"><canvas id="chAttend"></canvas></div>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h2>Salvations &amp; baptisms<button type="button" class="info-btn" onclick="showSource(event,'decisions')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <div class="chartbox short"><canvas id="chDecisions"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Campus comparison <span class="pill">avg weekly · sanctuary + kids</span><button type="button" class="info-btn" onclick="showSource(event,'campusAvg')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <div class="chartbox short"><canvas id="chCampus"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Service time breakdown <span class="pill">avg per service · sanctuary + kids</span><button type="button" class="info-btn" onclick="showSource(event,'serviceAvg')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="chartbox short"><canvas id="chService"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Sunday Service Summary<button type="button" class="info-btn" onclick="showSource(event,'summary')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div style="overflow-x:auto"><table class="grid" id="summaryTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>Wednesday attendance by week <span class="pill">all midweek data, stacked by campus</span><button type="button" class="info-btn" onclick="showSource(event,'wed')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="chartbox"><canvas id="chWed"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Wednesday Service Summary <span class="pill">midweek check-ins</span><button type="button" class="info-btn" onclick="showSource(event,'wed')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div style="overflow-x:auto"><table class="grid" id="wedSummaryTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ VOLUNTEERS ============ -->
+  <section id="view-vols" style="display:none">
+    <div class="card">
+      <div class="row filter-row" style="align-items:center">
+        <label>Range
+          <select id="vRangeSel" onchange="renderVols()" style="margin-left:6px">
+            <option value="8">Last 8 weeks</option>
+            <option value="13" selected="">Last 13 weeks</option>
+            <option value="26">Last 26 weeks</option>
+            <option value="52">Last 52 weeks</option>
+          </select>
+        </label>
+        <label>Campus
+          <select id="vCampusSel" onchange="renderVols()" style="margin-left:6px"></select>
+        </label>
+        <label>Service
+          <select id="vServiceSel" onchange="renderVols()" style="margin-left:6px"></select>
+        </label>
+        <label class="check-label" style="white-space:nowrap"><input type="checkbox" id="vRawNames" onchange="renderVols()"> Raw team names</label>
+      </div>
+    </div>
+    <div class="cards" id="volStats"></div>
+    <div class="card">
+      <h2 style="margin-top:16px">Volunteers by week <span class="pill">stacked by team, top 10</span><button type="button" class="info-btn" onclick="showSource(event,'teams')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="chartbox"><canvas id="chVolWeeks"></canvas></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:20px">Team breakdown <span class="pill">sorted by average per week</span><button type="button" class="info-btn" onclick="showSource(event,'teams')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="table-scroll"><table class="grid" id="volTeamTable"></table></div>
+      <p class="hint">Fed automatically from Planning Center Services scheduling. Numbers are scheduled or confirmed team members per week.</p>
+    </div>
+  </section>
+
+  <!-- ============ NEXT STEPS ============ -->
+  <section id="view-next" style="display:none">
+    <div class="card">
+      <div class="row filter-row" style="align-items:center">
+        <label>Range
+          <select id="nRangeSel" onchange="renderNext()" style="margin-left:6px">
+            <option value="8">Last 8 weeks</option>
+            <option value="13" selected="">Last 13 weeks</option>
+            <option value="26">Last 26 weeks</option>
+            <option value="52">Last 52 weeks</option>
+          </select>
+        </label>
+        <label>Campus
+          <select id="nCampusSel" onchange="renderNext()" style="margin-left:6px"></select>
+        </label>
+        <span class="view-summary" id="nextSync" style="margin-left:auto; font-size:12.5px"></span>
+      </div>
+    </div>
+    <div class="card" id="nextNoSync" style="display:none; border-color:#fde68a; background:#fffbeb">
+      <b>Planning Center numbers aren’t connected yet.</b> Connect cards, open follow-ups and baptism registrations will read 0 until the hourly Planning Center sync is turned on. Hands raised and baptized are live from the usher reports.
+    </div>
+    <div class="cards" id="nextStats"></div>
+    <div class="card">
+      <h2>Decisions by week <span class="pill">hands raised vs. connect cards</span><button type="button" class="info-btn" onclick="showSource(event,'decisionsChart')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="chartbox"><canvas id="chNextDecisions"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Baptism by week <span class="pill">registrations vs. baptized</span><button type="button" class="info-btn" onclick="showSource(event,'baptismChart')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="chartbox short"><canvas id="chNextBaptism"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Baptism Sundays <span class="pill">registered vs. baptized, per event</span><button type="button" class="info-btn" onclick="showSource(event,'events')" aria-label="How Baptism Sundays are worked out" aria-expanded="false">i</button></h2>
+      <div class="table-scroll"><table class="grid" id="nextEventsTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>By campus <span class="pill">totals for the range</span><button type="button" class="info-btn" onclick="showSource(event,'nextTables')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="table-scroll"><table class="grid" id="nextCampusTable"></table></div>
+      <p class="hint">Tap the <b><i>i</i></b> beside any heading to see where that number comes from and where to verify it.</p>
+    </div>
+    <div class="card">
+      <h2>By week<button type="button" class="info-btn" onclick="showSource(event,'nextTables')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <div class="table-scroll"><table class="grid" id="nextWeekTable"></table></div>
+    </div>
+    <div class="card" id="nextPeopleCard" style="display:none">
+      <h2>People <span class="pill">admins only</span><button type="button" class="info-btn" onclick="showSource(event,'people')" aria-label="Where the People list comes from" aria-expanded="false">i</button></h2>
+      <div class="row filter-row" style="margin-bottom:10px">
+        <label>Show
+          <select id="nPeopleSel" onchange="renderNextPeople()" style="margin-left:6px">
+            <option value="open">Decisions needing follow-up</option>
+            <option value="decision">All connect-card decisions</option>
+            <option value="baptism_reg">Baptism registrations</option>
+            <option value="">Everything</option>
+          </select>
+        </label>
+        <button class="btn ghost sm" onclick="exportNextPeople()">Export this list (CSV)</button>
+      </div>
+      <div class="table-scroll"><table class="grid" id="nextPeopleTable"></table></div>
+      <p class="hint">Names link to the person in Planning Center. Only admin accounts can see this list.</p>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="view-settings" style="display:none">
+    <div class="card" id="usersCard" style="display:none">
+      <h2>Team access</h2>
+      <p class="hint" style="margin:0 0 10px">Create accounts in Supabase (Authentication → Users → Add user), then assign campuses here. Admins can edit everything; counters can only enter numbers for their assigned campuses. Everyone can view the dashboard.</p>
+      <div style="overflow-x:auto"><table class="users" id="usersTable"></table></div>
+    </div>
+    <div class="card" id="structureCard">
+      <h2>Campuses &amp; service times</h2>
+      <div id="campusList"></div>
+      <div class="row" style="margin-top:10px" id="addCampusRow">
+        <input type="text" id="newCampus" placeholder="New campus name" class="grow">
+        <button class="btn sm" onclick="addCampus()">Add campus</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Import / export</h2>
+      <div class="row">
+        <button class="btn" onclick="exportCSV()">Export CSV</button>
+        <button class="btn ghost" onclick="document.getElementById('csvFile').click()">Import CSV file</button>
+        <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSVFile(this)">
+        <button class="btn ghost" onclick="importLocal()">Import from offline version</button>
+      </div>
+      <p class="hint">CSV format: <code>week,service,campus,metric,value</code> (metrics: adults, kids, volunteers, salvations, baptisms). "Import from offline version" pulls anything you entered in the earlier local file on this computer.</p>
+      <textarea class="csv" id="csvPaste" placeholder="week,service,campus,metric,value
+2026-07-12,8:30 AM,Columbia,adults,412"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost sm" onclick="importCSVText(document.getElementById('csvPaste').value)">Import pasted rows</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="src-pop" id="srcPop" role="dialog" aria-label="Where this number comes from"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ================= CONFIG — paste your values from Supabase → Settings → API ================= */
+const SUPABASE_URL      = 'https://ujzmknckieektcdbpyvr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0It-cjntEVG4TmR-dSLYIg_PynHuO_8';
+/* ============================================================================================= */
+
+const METRICS = [
+  {key:'adults',     label:'Adults',      group:'Attendance',  attend:true},
+  {key:'kids',       label:'Kids',        group:'Attendance',  attend:true},
+  {key:'volunteers', label:'Volunteers',  group:'Serving',     attend:false},
+  {key:'salvations', label:'Salvations',  group:'Decisions',   attend:false},
+  {key:'baptisms',   label:'Baptisms',    group:'Decisions',   attend:false},
+];
+
+let sb=null, me=null, myRole='counter', myCampuses=new Set();
+let campuses=[];            // [{id,name,sort_order,services:[{id,label,sort_order}]}]
+let svcById={};             // service_id -> {service, campus}
+let weekCache={};           // week -> {service_id: entryRow}
+let curWeek=null;
+let entryCampusId='';
+let currentViewId='dash';
+let entryRenderToken=0;
+let dashRenderToken=0;
+let volsRenderToken=0;
+let nextRenderToken=0;
+const pendingChanges={};    // "week|service_id" -> metrics waiting to be saved
+const failedSaves=new Set();
+const savingRows=new Set();
+const retryTimers={};
+const retryCounts={};
+
+function showLoginError(message){
+  document.getElementById('liErr').textContent=message;
+}
+
+/* ---------------- boot ---------------- */
+function boot(){
+  if(SUPABASE_URL.startsWith('PASTE')||SUPABASE_ANON_KEY.startsWith('PASTE')){
+    document.querySelector('#login .box').innerHTML=
+      '<h1>Almost there</h1><p style="margin-top:10px">Open this file in a text editor and paste your Supabase <b>Project URL</b> and <b>anon public key</b> into the CONFIG block at the top of the &lt;script&gt; section, then reload.</p>';
+    return;
+  }
+  if(typeof supabase==='undefined'){
+    showLoginError('The app could not load its secure connection. Check your internet connection and reload.');
+    return;
+  }
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb.auth.getSession().then(({data})=>{
+    if(data.session) start(data.session.user);
+  }).catch(()=>showLoginError('Could not connect. Check your internet connection and try again.'));
+  sb.auth.onAuthStateChange((ev,session)=>{
+    if(ev==='SIGNED_IN' && session && !me) start(session.user);
+    if(ev==='SIGNED_OUT') location.reload();
+  });
+}
+async function signIn(){
+  const btn=document.getElementById('liBtn'), err=document.getElementById('liErr');
+  btn.disabled=true; err.textContent='';
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({
+      email:document.getElementById('liEmail').value.trim(),
+      password:document.getElementById('liPass').value
+    });
+    if(error){ err.textContent=error.message; return; }
+    if(data.user && !me) start(data.user);
+  }catch(e){
+    err.textContent='Could not connect. Check your internet connection and try again.';
+  }finally{
+    btn.disabled=false;
+  }
+}
+function signOut(){ sb.auth.signOut(); }
+
+async function start(user){
+  me=user;
+  // my permissions
+  const [{data:prof,error:profileError},{data:uc,error:campusError}]=await Promise.all([
+    sb.from('profiles').select('role').eq('id',me.id).single(),
+    sb.from('user_campuses').select('campus_id').eq('user_id',me.id)
+  ]);
+  if(profileError||campusError){
+    me=null;
+    showLoginError('Signed in, but your access settings could not be loaded. Please try again or contact an admin.');
+    return;
+  }
+  myRole=(prof&&prof.role)||'counter';
+  myCampuses=new Set((uc||[]).map(r=>r.campus_id));
+  document.getElementById('whoami').textContent=me.email+(myRole==='admin'?' · admin':'');
+  if(!await loadMeta()){
+    me=null;
+    showLoginError('Signed in, but the campus data could not be loaded. Check your connection and try again.');
+    return;
+  }
+  if(myRole!=='admin' && myCampuses.size===1) entryCampusId=[...myCampuses][0];
+  document.getElementById('login').style.display='none';
+  document.getElementById('topbar').style.display='';
+  document.getElementById('app').style.display='';
+  curWeek=iso(sundayOf(new Date()));
+  show('dash');
+}
+async function loadMeta(){
+  const [{data:cs,error:e1},{data:ss,error:e2}]=await Promise.all([
+    sb.from('campuses').select('*').order('sort_order').order('name'),
+    sb.from('services').select('*').order('sort_order').order('label')
+  ]);
+  if(e1||e2){ toast((e1||e2).message,true); return false; }
+  campuses=(cs||[]).map(c=>({...c,services:(ss||[]).filter(s=>s.campus_id===c.id)}));
+  svcById={};
+  campuses.forEach(c=>c.services.forEach(s=>svcById[s.id]={service:s,campus:c}));
+  return true;
+}
+function canEdit(campusId){ return myRole==='admin' || myCampuses.has(campusId); }
+
+/* ---------------- date helpers ---------------- */
+function sundayOf(d){ const x=new Date(d); x.setHours(12,0,0,0); x.setDate(x.getDate()-x.getDay()); return x; }
+function iso(d){ return d.toISOString().slice(0,10); }
+function fromISO(s){ const [y,m,dd]=s.split('-').map(Number); return new Date(y,m-1,dd,12); }
+function fmtWeek(s){ return fromISO(s).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
+function fmtWed(s){ const d=fromISO(s); d.setDate(d.getDate()+3); return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}); }
+function lastNWeeks(n){
+  const out=[]; const d=sundayOf(new Date());
+  for(let i=n-1;i>=0;i--){ const x=new Date(d); x.setDate(d.getDate()-7*i); out.push(iso(x)); }
+  return out;
+}
+
+/* ---------------- views ---------------- */
+function show(v){
+  currentViewId=v;
+  closeSource();
+  for(const id of ['entry','dash','vols','next','settings'])
+    document.getElementById('view-'+id).style.display = id===v?'':'none';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  closeMenu();
+  if(v==='entry') renderEntry();
+  if(v==='dash') renderDash();
+  if(v==='vols') renderVols();
+  if(v==='next') renderNext();
+  if(v==='settings') renderSettings();
+}
+function closeMenu(){
+  const menu=document.getElementById('menu'), button=document.getElementById('menuBtn');
+  if(menu) menu.classList.remove('open');
+  if(button) button.setAttribute('aria-expanded','false');
+}
+function toggleMenu(e){
+  if(e) e.stopPropagation();
+  const menu=document.getElementById('menu'), button=document.getElementById('menuBtn');
+  const open=menu.classList.toggle('open');
+  button.setAttribute('aria-expanded',String(open));
+}
+document.addEventListener('click',e=>{
+  const wrap=document.querySelector('.menu-wrap');
+  if(wrap&&!wrap.contains(e.target)) closeMenu();
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenu(); });
+
+/* ---------------- manual refresh ---------------- */
+let refreshing=false;
+async function refreshAll(){
+  if(refreshing) return;
+  refreshing=true;
+  const btn=document.getElementById('refreshBtn');
+  const label=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.innerHTML='&#8635; Refreshing…'; }
+  try{
+    // Drop cached data so every view pulls fresh numbers from Supabase.
+    weekCache={};
+    teamGroupsCache=null;
+    const ok=await loadMeta();
+    if(!ok){ toast('Could not refresh — check your connection',true); return; }
+    show(currentViewId);   // re-renders the current view, which re-queries the database
+    toast('Data refreshed');
+  }catch(e){
+    toast('Refresh failed: '+((e&&e.message)||e),true);
+  }finally{
+    refreshing=false;
+    if(btn){ btn.disabled=false; btn.innerHTML=label||'&#8635; Refresh'; }
+  }
+}
+
+/* ---------------- entry data ---------------- */
+async function loadWeek(week,force=false){
+  if(weekCache[week] && !force) return weekCache[week];
+  const {data,error}=await sb.from('entries').select('*').eq('week',week);
+  if(error){ toast(error.message,true); return {}; }
+  const map={}; (data||[]).forEach(r=>map[r.service_id]=r);
+  // Preserve edits that are still being saved if this week is refreshed.
+  Object.entries(pendingChanges).forEach(([key,changes])=>{
+    const split=key.indexOf('|');
+    if(key.slice(0,split)!==week) return;
+    const sid=key.slice(split+1);
+    map[sid]=Object.assign({week,service_id:sid},map[sid]||{},changes);
+  });
+  weekCache[week]=map;
+  return map;
+}
+function getVal(week,sid,metric){
+  const r=weekCache[week] && weekCache[week][sid];
+  return r && r[metric]!=null ? r[metric] : '';
+}
+function setLocal(week,sid,metric,v){
+  if(!weekCache[week]) weekCache[week]={};
+  if(!weekCache[week][sid]) weekCache[week][sid]={week,service_id:sid};
+  const value=v===''?null:Number(v);
+  weekCache[week][sid][metric]=value;
+  const key=week+'|'+sid;
+  if(!pendingChanges[key]) pendingChanges[key]={};
+  pendingChanges[key][metric]=value;
+}
+const saveTimers={};
+function queueSave(week,sid){
+  const key=week+'|'+sid;
+  clearTimeout(saveTimers[key]);
+  clearTimeout(retryTimers[key]);
+  saveTimers[key]=setTimeout(()=>saveRow(week,sid),600);
+  failedSaves.delete(key);
+  updateSaveState();
+}
+async function saveRow(week,sid){
+  const key=week+'|'+sid;
+  if(savingRows.has(key)) return;
+  const changes=pendingChanges[key];
+  if(!changes||!Object.keys(changes).length){ updateSaveState(); return; }
+  savingRows.add(key);
+  const snapshot={...changes};
+  const payload={week,service_id:sid,updated_by:me.id,updated_at:new Date().toISOString(),...snapshot};
+  let error=null;
+  try{
+    ({error}=await sb.from('entries').upsert(payload,{onConflict:'week,service_id'}));
+  }catch(e){
+    error={message:'Network connection lost'};
+  }
+  if(error){
+    failedSaves.add(key);
+    const permanent=/security|policy|permission|violates/i.test(error.message);
+    if(!permanent && navigator.onLine){
+      const attempt=(retryCounts[key]||0)+1;
+      retryCounts[key]=attempt;
+      const delay=Math.min(30000,2000*Math.pow(2,attempt-1));
+      clearTimeout(retryTimers[key]);
+      retryTimers[key]=setTimeout(()=>saveRow(week,sid),delay);
+    }
+    updateSaveState();
+    if(!retryCounts[key]||retryCounts[key]===1) toast(permanent
+      ? 'No edit access to that campus — ask your admin' : 'Save failed: '+error.message, true);
+  } else {
+    // Clear only values that were not changed again while this request was in flight.
+    Object.entries(snapshot).forEach(([metric,value])=>{
+      if(pendingChanges[key]&&pendingChanges[key][metric]===value) delete pendingChanges[key][metric];
+    });
+    if(pendingChanges[key]&&!Object.keys(pendingChanges[key]).length) delete pendingChanges[key];
+    failedSaves.delete(key);
+    delete retryCounts[key];
+    clearTimeout(retryTimers[key]);
+    updateSaveState();
+  }
+  savingRows.delete(key);
+  if(!error && pendingChanges[key]) queueSave(week,sid);
+}
+let ssTimer=null;
+function updateSaveState(){
+  const s=document.getElementById('saveState');
+  const retry=document.getElementById('retrySave');
+  const pendingCount=Object.values(pendingChanges).reduce((n,row)=>n+Object.keys(row).length,0);
+  const failedCount=failedSaves.size;
+  clearTimeout(ssTimer);
+  retry.style.display=failedCount?'inline-block':'none';
+  if(failedCount){
+    const autoRetry=[...failedSaves].some(key=>retryTimers[key]);
+    s.textContent=failedCount+(failedCount===1?' row':' rows')+' not saved'+(autoRetry?' · retrying…':'');
+    s.className='savestate error';
+  }else if(pendingCount){
+    s.textContent=pendingCount+(pendingCount===1?' change':' changes')+' saving…';
+    s.className='savestate saving';
+  }else{
+    s.textContent='All changes saved ✓';
+    s.className='savestate';
+    ssTimer=setTimeout(()=>{ if(!Object.keys(pendingChanges).length) s.textContent=''; },1800);
+  }
+}
+function retryPendingSaves(){
+  const keys=[...failedSaves];
+  failedSaves.clear();
+  keys.forEach(key=>{
+    clearTimeout(retryTimers[key]);
+    delete retryCounts[key];
+    const split=key.indexOf('|');
+    queueSave(key.slice(0,split),key.slice(split+1));
+  });
+  updateSaveState();
+}
+window.addEventListener('online',retryPendingSaves);
+window.addEventListener('beforeunload',e=>{
+  if(!Object.keys(pendingChanges).length) return;
+  e.preventDefault(); e.returnValue='';
+});
+
+/* ---------------- entry view ---------------- */
+function stepWeek(n){ const d=fromISO(curWeek); d.setDate(d.getDate()+7*n); curWeek=iso(d); renderEntry(); }
+function pickWeek(v){ if(v){ curWeek=iso(sundayOf(fromISO(v))); renderEntry(); } }
+function setEntryCampus(id){ entryCampusId=id; renderEntry(); }
+
+async function renderEntry(){
+  const token=++entryRenderToken;
+  const renderWeek=curWeek;
+  document.getElementById('weekLabel').textContent=fmtWeek(renderWeek);
+  document.getElementById('weekPicker').value=renderWeek;
+  const campusSel=document.getElementById('entryCampusSel');
+  if(entryCampusId && !campuses.some(c=>c.id===entryCampusId)) entryCampusId='';
+  campusSel.innerHTML='<option value="">All campuses</option>'+campuses.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  campusSel.value=entryCampusId;
+  const tbl=document.getElementById('entryGrid');
+  tbl.innerHTML='<tbody><tr><td class="empty">Loading week…</td></tr></tbody>';
+  await loadWeek(renderWeek,true);
+  if(token!==entryRenderToken || renderWeek!==curWeek) return;
+
+  const visibleCampuses=entryCampusId?campuses.filter(c=>c.id===entryCampusId):campuses;
+  let html='<thead><tr><th>Campus</th><th>Service</th>';
+  for(const m of METRICS) html+=`<th>${m.label}${infoBtn(m.key)}<span class="metric-group">${m.group}</span></th>`;
+  html+='</tr></thead><tbody>';
+  let r=0;
+  visibleCampuses.forEach(c=>{
+    const editable=canEdit(c.id);
+    if(!c.services.length){
+      html+=`<tr><td class="campus">${esc(c.name)}</td><td class="svc" colspan="${METRICS.length+1}" style="color:var(--muted)">No service times yet</td></tr>`;
+      return;
+    }
+    c.services.forEach((svc,si)=>{
+      html+=`<tr><td class="campus">${esc(c.name)}</td><td class="svc">${esc(svc.label)}</td>`;
+      METRICS.forEach((m,ci)=>{
+        const v=getVal(renderWeek,svc.id,m.key);
+        html+=`<td><input inputmode="numeric" pattern="[0-9]*" maxlength="10" value="${v}" ${editable?'':'disabled'} data-r="${r}" data-c="${ci}" data-cid="${c.id}" data-sid="${svc.id}" data-m="${m.key}" aria-label="${esc(c.name+' '+svc.label+' '+m.label)}"></td>`;
+      });
+      html+='</tr>'; r++;
+    });
+    if(c.services.length>1){
+      html+=`<tr class="subtotal"><td colspan="2">${esc(c.name)} total</td>`;
+      METRICS.forEach(m=>html+=`<td data-sub="${c.id}:${m.key}"></td>`);
+      html+='</tr>';
+    }
+  });
+  html+=`<tr class="totals"><td colspan="2">${entryCampusId?'Selected campus':'All campuses'}</td>`;
+  METRICS.forEach(m=>html+=`<td data-total="${m.key}"></td>`);
+  html+='</tr></tbody>';
+  tbl.innerHTML=html;
+  refreshTotals(tbl,renderWeek,visibleCampuses);
+
+  const hint=document.getElementById('entryHint');
+  if(myRole!=='admin' && myCampuses.size===0)
+    hint.innerHTML='<b>View-only:</b> you haven\'t been assigned a campus yet — ask your admin.';
+
+  tbl.querySelectorAll('input:not(:disabled)').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const clean=inp.value.replace(/[^0-9]/g,'');
+      if(clean!==inp.value) inp.value=clean;
+      setLocal(renderWeek,inp.dataset.sid,inp.dataset.m,clean);
+      refreshTotals(tbl,renderWeek,visibleCampuses);
+      queueSave(renderWeek,inp.dataset.sid);
+    });
+    inp.addEventListener('focus',()=>inp.select());
+    inp.addEventListener('keydown',e=>{
+      const r=+inp.dataset.r, c=+inp.dataset.c;
+      let nr=r, nc=c;
+      if(e.key==='Enter'||e.key==='ArrowDown') nr=r+1;
+      else if(e.key==='ArrowUp') nr=r-1;
+      else if(e.key==='ArrowLeft' && inp.selectionStart===0) nc=c-1;
+      else if(e.key==='ArrowRight' && inp.selectionStart===inp.value.length) nc=c+1;
+      else return;
+      const next=tbl.querySelector(`input[data-r="${nr}"][data-c="${nc}"]`);
+      if(next){ e.preventDefault(); next.focus(); }
+    });
+  });
+}
+function refreshTotals(tbl,week=curWeek,campusList=campuses){
+  METRICS.forEach(m=>{
+    let grand=0, grandHasValue=false;
+    campusList.forEach(c=>{
+      let sub=0, hasValue=false;
+      c.services.forEach(s=>{ const v=getVal(week,s.id,m.key); if(v!==''){ sub+=v; hasValue=true; } });
+      const cell=tbl.querySelector(`td[data-sub="${c.id}:${m.key}"]`);
+      if(cell) cell.textContent=hasValue?sub:'';
+      grand+=sub;
+      grandHasValue=grandHasValue||hasValue;
+    });
+    const t=tbl.querySelector(`td[data-total="${m.key}"]`);
+    if(t) t.textContent=grandHasValue?grand:'';
+  });
+}
+
+/* ---------------- dashboard ---------------- */
+let charts={};
+async function renderDash(){
+  const token=++dashRenderToken;
+  const n=+document.getElementById('rangeSel').value;
+  const weeks=lastNWeeks(n);
+  const {data,error}=await sb.from('entries').select('*').gte('week',weeks[0]);
+  if(token!==dashRenderToken) return;
+  if(error){ toast(error.message,true); return; }
+  const rows=(data||[]).filter(r=>svcById[r.service_id]);
+
+  const sel=document.getElementById('campusSel');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All campuses</option>'+campuses.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+  const cid=sel.value||null;
+
+  const attendKeys=METRICS.filter(m=>m.attend).map(m=>m.key);
+  const sum=(row,keys)=>keys.reduce((a,k)=>a+(row[k]||0),0);
+  // Wednesday youth ("Youth (Wed)") services are excluded from all the weekend/Sunday figures
+  // below; they appear only in the separate Wednesday Service Summary card.
+  const wedSvcIds=new Set(campuses.flatMap(c=>c.services)
+    .filter(s=>/\(wed(nesday)?\)/i.test(s.label)).map(s=>s.id));
+  const wTotal=(week,keys,campusId)=>rows
+    .filter(r=>r.week===week && !wedSvcIds.has(r.service_id) && (!campusId || svcById[r.service_id].campus.id===campusId))
+    .reduce((a,r)=>a+sum(r,keys),0);
+
+  const totals=weeks.map(w=>wTotal(w,attendKeys,cid));
+  const thisW=totals[totals.length-1], lastW=totals[totals.length-2]||0;
+  const nonzero=totals.filter(t=>t>0);
+  const avg=nonzero.length?Math.round(nonzero.reduce((a,b)=>a+b,0)/nonzero.length):0;
+  const salv=weeks.reduce((a,w)=>a+wTotal(w,['salvations'],cid),0);
+  const bapt=weeks.reduce((a,w)=>a+wTotal(w,['baptisms'],cid),0);
+  const vol=wTotal(weeks[weeks.length-1],['volunteers'],cid);
+  const volVals=weeks.map(w=>wTotal(w,['volunteers'],cid)).filter(v=>v>0);
+  const volAvg=volVals.length?Math.round(volVals.reduce((a,b)=>a+b,0)/volVals.length):0;
+  const d=lastW?Math.round((thisW-lastW)/lastW*100):null;
+  const deltaHtml=d==null?'<span class="delta flat">—</span>'
+    :`<span class="delta ${d>0?'up':d<0?'down':'flat'}">${d>0?'▲':d<0?'▼':''} ${Math.abs(d)}% vs last wk</span>`;
+  document.getElementById('statCards').innerHTML=`
+    <div class="stat"><div class="lbl">This week attendance · sanctuary + kids${infoBtn('attend')}</div><div class="val">${fmt(thisW)}</div>${deltaHtml}</div>
+    <div class="stat"><div class="lbl">Avg weekly (range) · sanctuary + kids${infoBtn('attendAvg')}</div><div class="val">${fmt(avg)}</div><span class="delta flat">${nonzero.length} wks with data</span></div>
+    <div class="stat"><div class="lbl">Salvations (range)${infoBtn('decisions')}</div><div class="val">${fmt(salv)}</div><span class="delta flat">${fmt(bapt)} baptisms</span></div>
+    <div class="stat"><div class="lbl">Volunteers (latest)${infoBtn('volunteers')}</div><div class="val">${fmt(vol)}</div><span class="delta flat">${fmt(volAvg)} avg/wk</span></div>`;
+
+  const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+  const palette=['#4f46e5','#059669','#d97706','#dc2626','#0891b2','#7c3aed','#be185d','#4d7c0f'];
+  const shown=cid?campuses.filter(c=>c.id===cid):campuses;
+
+  mkChart('chAttend','bar',{labels,datasets:shown.map((c,i)=>({
+    label:c.name, data:weeks.map(w=>wTotal(w,attendKeys,c.id)),
+    backgroundColor:palette[i%palette.length], stack:'a', borderRadius:3
+  }))},{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
+
+  mkChart('chDecisions','line',{labels,datasets:[
+    {label:'Salvations',data:weeks.map(w=>wTotal(w,['salvations'],cid)),borderColor:'#4f46e5',backgroundColor:'#4f46e5',tension:.3},
+    {label:'Baptisms',data:weeks.map(w=>wTotal(w,['baptisms'],cid)),borderColor:'#059669',backgroundColor:'#059669',tension:.3}
+  ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+
+  mkChart('chCampus','bar',{labels:campuses.map(c=>c.name),datasets:[{
+    label:'Avg weekly attendance',
+    data:campuses.map(c=>{
+      const vals=weeks.map(w=>wTotal(w,attendKeys,c.id)).filter(v=>v>0);
+      return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;
+    }),
+    backgroundColor:campuses.map((_,i)=>palette[i%palette.length]), borderRadius:5
+  }]},{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true}}});
+
+  const svcRows=[];
+  shown.forEach(c=>c.services.forEach(s=>{
+    if(wedSvcIds.has(s.id)) return;
+    const vals=weeks.map(w=>rows.filter(r=>r.week===w&&r.service_id===s.id).reduce((a,r)=>a+sum(r,attendKeys),0)).filter(v=>v>0);
+    svcRows.push({label:c.name+' · '+s.label,
+      val:vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0,
+      color:palette[campuses.indexOf(c)%palette.length]});
+  }));
+  mkChart('chService','bar',{labels:svcRows.map(s=>s.label),datasets:[{
+    label:'Avg attendance',data:svcRows.map(s=>s.val),backgroundColor:svcRows.map(s=>s.color),borderRadius:5
+  }]},{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true}}});
+
+  let html=`<thead><tr><th>Week</th><th>Attendance${infoBtn('attend')}<span class="metric-group">sanctuary + kids</span></th><th>Volunteers${infoBtn('volunteers')}</th><th>Salvations${infoBtn('salvations')}</th><th>Baptisms${infoBtn('baptisms')}</th></tr></thead><tbody>`;
+  [...weeks].reverse().forEach(w=>{
+    html+=`<tr><td class="campus">${fmtWeek(w)}</td>
+      <td style="text-align:center">${fmt(wTotal(w,attendKeys,cid))}</td>
+      <td style="text-align:center">${fmt(wTotal(w,['volunteers'],cid))}</td>
+      <td style="text-align:center">${fmt(wTotal(w,['salvations'],cid))}</td>
+      <td style="text-align:center">${fmt(wTotal(w,['baptisms'],cid))}</td></tr>`;
+  });
+  document.getElementById('summaryTable').innerHTML=html+'</tbody>';
+
+  // ---- Wednesday Service Summary (midweek check-ins, scoped to "Youth (Wed)" services) ----
+  // wedSvcIds is defined above; Wednesday services are excluded from the weekend figures but shown here.
+  const wedCampuses=(cid?campuses.filter(c=>c.id===cid):campuses)
+    .filter(c=>c.services.some(s=>wedSvcIds.has(s.id)));
+  const wedTable=document.getElementById('wedSummaryTable');
+  if(wedTable){
+    if(!wedCampuses.length){
+      wedTable.innerHTML='<tbody><tr><td class="empty">No Wednesday youth services for this campus yet.</td></tr></tbody>';
+    }else{
+      const wedAt=(week,campusId)=>rows
+        .filter(r=>r.week===week && wedSvcIds.has(r.service_id) && svcById[r.service_id].campus.id===campusId)
+        .reduce((a,r)=>a+sum(r,attendKeys),0);
+      const wedHasRow=(week,campusId)=>rows
+        .some(r=>r.week===week && wedSvcIds.has(r.service_id) && svcById[r.service_id].campus.id===campusId);
+      const showTotal=wedCampuses.length>1;
+      let wh='<thead><tr><th>Week</th>'
+        +wedCampuses.map(c=>`<th style="text-align:center">${esc(c.name)}</th>`).join('')
+        +(showTotal?'<th style="text-align:center">Total</th>':'')+'</tr></thead><tbody>';
+      [...weeks].reverse().forEach(w=>{
+        const vals=wedCampuses.map(c=>({has:wedHasRow(w,c.id),v:wedAt(w,c.id)}));
+        const tot=vals.reduce((a,b)=>a+b.v,0);
+        wh+=`<tr><td class="campus">${fmtWed(w)}</td>`
+          +vals.map(x=>`<td style="text-align:center">${x.has?fmt(x.v):'—'}</td>`).join('')
+          +(showTotal?`<td style="text-align:center">${fmt(tot)}</td>`:'')+'</tr>';
+      });
+      wedTable.innerHTML=wh+'</tbody>';
+    }
+  }
+
+  // ---- Wednesday attendance chart (ALL midweek data, ignores the Range filter) ----
+  const chWedEl=document.getElementById('chWed');
+  if(chWedEl && wedSvcIds.size){
+    const {data:wedData,error:wedErr}=await sb.from('entries').select('*').in('service_id',[...wedSvcIds]);
+    if(token===dashRenderToken){
+      if(wedErr){ toast(wedErr.message,true); }
+      else{
+        const wrows=(wedData||[]).filter(r=>svcById[r.service_id]);
+        const wedWeeks=[...new Set(wrows.map(r=>r.week))].sort();
+        const wedChartCampuses=(cid?campuses.filter(c=>c.id===cid):campuses)
+          .filter(c=>c.services.some(s=>wedSvcIds.has(s.id)));
+        const wedLabels=wedWeeks.map(w=>{ const d=fromISO(w); d.setDate(d.getDate()+3);
+          return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); });
+        const wedAtC=(week,campusId)=>wrows
+          .filter(r=>r.week===week && svcById[r.service_id].campus.id===campusId)
+          .reduce((a,r)=>a+sum(r,attendKeys),0);
+        mkChart('chWed','bar',{labels:wedLabels,datasets:wedChartCampuses.map((c,i)=>({
+          label:c.name, data:wedWeeks.map(w=>wedAtC(w,c.id)),
+          backgroundColor:palette[i%palette.length], stack:'a', borderRadius:3
+        }))},{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
+      }
+    }
+  }else if(chWedEl && charts.chWed){ charts.chWed.destroy(); delete charts.chWed; }
+}
+function mkChart(id,type,data,extra){
+  if(charts[id]) charts[id].destroy();
+  charts[id]=new Chart(document.getElementById(id),{type,data,
+    options:Object.assign({responsive:true,maintainAspectRatio:false,
+      plugins:Object.assign({legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},(extra&&extra.plugins)||{})
+    },extra||{})});
+}
+
+let teamGroupsCache=null;
+async function loadTeamGroups(){
+  if(teamGroupsCache) return teamGroupsCache;
+  const {data,error}=await sb.from('team_groups').select('*');
+  if(error){
+    toast('Volunteer team groups could not be loaded: '+error.message,true);
+    return {};
+  }
+  teamGroupsCache={};
+  (data||[]).forEach(r=>{ teamGroupsCache[r.raw_name]=r.group_name; });
+  return teamGroupsCache;
+}
+function cleanTeamName(name){
+  return String(name)
+    .replace(/^\s*(DC|DL|DS|DSV|COL|LEW|SHE|SVL)\s*[-–:]\s*/i,'')
+    .replace(/\s*\((Columbia|Lewisburg|Shelbyville)\)\s*/ig,' ')
+    .replace(/\s+/g,' ').trim()
+    .replace(/\w\S*/g,word=>word.charAt(0).toUpperCase()+word.slice(1).toLowerCase());
+}
+
+async function renderVols(){
+  const token=++volsRenderToken;
+  const n=+document.getElementById('vRangeSel').value;
+  const weeks=lastNWeeks(n);
+  const [{data:tdata,error:e1},{data:edata,error:e2}]=await Promise.all([
+    sb.from('volunteer_teams').select('*').gte('week',weeks[0]).range(0,9999),
+    sb.from('entries').select('week,service_id,volunteers').gte('week',weeks[0])
+  ]);
+  if(token!==volsRenderToken) return;
+  if(e1||e2){ toast((e1||e2).message,true); return; }
+
+  const csel=document.getElementById('vCampusSel');
+  const ccur=csel.value;
+  csel.innerHTML='<option value="">All campuses</option>'+campuses.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if([...csel.options].some(x=>x.value===ccur)) csel.value=ccur;
+  const cid=csel.value||null;
+
+  const ssel=document.getElementById('vServiceSel');
+  const scur=ssel.value;
+  const svcOpts=(cid?campuses.filter(c=>c.id===cid):campuses)
+    .flatMap(c=>c.services.map(s=>({id:s.id,label:c.name+' · '+s.label})));
+  ssel.innerHTML='<option value="">All services</option>'+svcOpts.map(x=>`<option value="${x.id}">${esc(x.label)}</option>`).join('');
+  if([...ssel.options].some(x=>x.value===scur)) ssel.value=scur;
+  const sid=ssel.value||null;
+
+  const rows=(tdata||[]).filter(x=>svcById[x.service_id]
+    &&(!cid||svcById[x.service_id].campus.id===cid)
+    &&(!sid||x.service_id===sid));
+  const gmap=await loadTeamGroups();
+  if(token!==volsRenderToken) return;
+  const useRaw=document.getElementById('vRawNames').checked;
+  if(!rows.length){
+    document.getElementById('volStats').innerHTML='';
+    document.getElementById('volTeamTable').innerHTML='<tbody><tr><td class="empty">No volunteer data yet — it syncs from Planning Center Services automatically.</td></tr></tbody>';
+    if(charts.chVolWeeks){ charts.chVolWeeks.destroy(); delete charts.chVolWeeks; }
+    return;
+  }
+  const teams={};
+  rows.forEach(x=>{
+    const teamName=useRaw?x.team_name:(gmap[x.team_name]||cleanTeamName(x.team_name));
+    if(!teams[teamName]) teams[teamName]={};
+    teams[teamName][x.week]=(teams[teamName][x.week]||0)+(x.count||0);
+  });
+  const teamNames=Object.keys(teams).sort((a,b)=>
+    Object.values(teams[b]).reduce((p,q)=>p+q,0)-Object.values(teams[a]).reduce((p,q)=>p+q,0));
+  const avgOf=team=>{
+    const values=weeks.map(w=>teams[team][w]||0).filter(x=>x>0);
+    return values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0;
+  };
+
+  const weekTotals=weeks.map(w=>teamNames.reduce((a,t)=>a+(teams[t][w]||0),0));
+  const latest=weekTotals[weekTotals.length-1]||0;
+  const nonzero=weekTotals.filter(x=>x>0);
+  const avgTotal=nonzero.length?Math.round(nonzero.reduce((a,b)=>a+b,0)/nonzero.length):0;
+  const entryRows=(edata||[]).filter(x=>svcById[x.service_id]
+    &&(!cid||svcById[x.service_id].campus.id===cid)&&(!sid||x.service_id===sid));
+  const uniqueLatest=entryRows.filter(x=>x.week===weeks[weeks.length-1]).reduce((a,x)=>a+(x.volunteers||0),0);
+  document.getElementById('volStats').innerHTML=`
+    <div class="stat"><div class="lbl">This week serving${infoBtn('teams')}</div><div class="val">${fmt(latest)}</div><span class="delta flat">scheduled team spots</span></div>
+    <div class="stat"><div class="lbl">Unique people${infoBtn('volunteers')}</div><div class="val">${fmt(uniqueLatest)}</div><span class="delta flat">latest usher count</span></div>
+    <div class="stat"><div class="lbl">Avg weekly (range)${infoBtn('teamsAvg')}</div><div class="val">${fmt(avgTotal)}</div><span class="delta flat">${nonzero.length} wks with data</span></div>
+    <div class="stat"><div class="lbl">Teams${infoBtn('teamCount')}</div><div class="val">${fmt(teamNames.length)}</div><span class="delta flat">active in range</span></div>`;
+
+  const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+  const palette=['#4f46e5','#059669','#d97706','#dc2626','#0891b2','#7c3aed','#be185d','#4d7c0f','#334155','#9333ea'];
+  const top=teamNames.slice(0,10);
+  mkChart('chVolWeeks','bar',{labels,datasets:top.map((team,i)=>({label:team,
+    data:weeks.map(w=>teams[team][w]||0),backgroundColor:palette[i%palette.length],stack:'a',borderRadius:3}))},
+    {scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
+
+  const trend=(last,avg)=>{
+    if(!avg) return '<span class="delta flat">—</span>';
+    const delta=Math.round((last-avg)/avg*100);
+    if(!delta) return '<span class="delta flat">flat</span>';
+    return '<span class="delta '+(delta>0?'up':'down')+'">'+(delta>0?'▲':'▼')+' '+Math.abs(delta)+'%</span>';
+  };
+  const lastWeek=weeks[weeks.length-1];
+  let html='<thead><tr><th>Team</th><th style="text-align:center">Avg / week</th><th style="text-align:center">Latest week</th><th style="text-align:center">Weeks active</th><th style="text-align:center">Total</th><th style="text-align:center">Latest vs avg</th></tr></thead><tbody>';
+  teamNames.forEach(team=>{
+    const avg=avgOf(team);
+    const values=weeks.map(w=>teams[team][w]||0);
+    const active=values.filter(value=>value>0).length;
+    const total=values.reduce((a,b)=>a+b,0);
+    const latestTeam=teams[team][lastWeek]||0;
+    html+='<tr><td class="campus">'+esc(team)+'</td><td style="text-align:center">'+avg+'</td>'
+      +'<td style="text-align:center">'+fmt(latestTeam)+'</td>'
+      +'<td style="text-align:center">'+active+'</td>'
+      +'<td style="text-align:center">'+fmt(total)+'</td>'
+      +'<td style="text-align:center">'+trend(latestTeam,avg)+'</td></tr>';
+  });
+  document.getElementById('volTeamTable').innerHTML=html+'</tbody>';
+}
+
+/* ---------------- next steps ---------------- */
+let nextPeopleRows=[], nextRegIds=new Set(), nextPeopleShown=[];
+const NEXT_STATUS={ready:'Needs follow-up',snoozed:'Snoozed',completed:'Completed',removed:'Removed',
+  active:'Registered',canceled:'Canceled / cleared',waitlisted:'Waitlisted'};
+const NEXT_TYPE={decision:'Decision for Christ',baptism_interest:'Baptism interest',baptism_reg:'Baptism registration'};
+const NEXT_EVENT_MIN=3;   // a campus needs at least this many usher-reported baptisms in a week to count as a Baptism Sunday
+async function renderNext(){
+  const token=++nextRenderToken;
+  const n=+document.getElementById('nRangeSel').value;
+  const weeks=lastNWeeks(n);
+  const inRange=new Set(weeks);
+  // Look further back than the range so registrations can be matched to the Baptism Sunday they led up to.
+  const back=fromISO(weeks[0]); back.setDate(back.getDate()-7*26); const backISO=iso(back);
+  const admin=myRole==='admin';
+  const none=Promise.resolve({data:[],error:null});
+  const [eres,cres,fres,sres,pres,rres]=await Promise.all([
+    sb.from('entries').select('week,service_id,salvations,baptisms').gte('week',backISO),
+    sb.rpc('next_steps_counts_v2',{from_week:backISO}),
+    sb.rpc('next_steps_funnel',{from_week:weeks[0]}),
+    sb.from('sync_status').select('*').eq('job','next_steps'),
+    admin ? sb.from('next_steps_people').select('*').gte('week',weeks[0]).order('occurred_at',{ascending:false}).range(0,1999) : none,
+    admin ? sb.from('next_steps_people').select('pco_person_id').eq('source','baptism_reg').range(0,4999) : none
+  ]);
+  if(token!==nextRenderToken) return;
+  const err=[eres,cres,fres,pres,rres].map(r=>r.error).find(Boolean);
+  if(err){ toast(err.message,true); return; }
+
+  const sel=document.getElementById('nCampusSel');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All campuses</option>'+campuses.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+  const cid=sel.value||null;
+
+  const erows=(eres.data||[]).filter(r=>svcById[r.service_id]);
+  const usher=(key,week,campusId)=>erows
+    .filter(r=>(week?r.week===week:inRange.has(r.week))&&(!campusId||svcById[r.service_id].campus.id===campusId))
+    .reduce((a,r)=>a+(r[key]||0),0);
+  const crows=cres.data||[];
+  const pco=(source,field,week,campusId)=>crows
+    .filter(r=>r.source===source&&(week?r.week===week:inRange.has(r.week))&&(!campusId||r.campus_id===campusId))
+    .reduce((a,r)=>a+Number(r[field]||0),0);
+  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  const avgDays=(week,campusId)=>{ const k=pco('decision','completed_count',week,campusId); return k?pco('decision','days_sum',week,campusId)/k:null; };
+  const fmtDays=v=>v==null?'—':(v<10?(Math.round(v*10)/10):Math.round(v))+(Math.round(v*10)/10===1?' day':' days');
+  document.getElementById('nextNoSync').style.display=crows.length?'none':'';
+
+  // ---- sync health ----
+  const st=(sres.data||[])[0]||null;
+  const syncEl=document.getElementById('nextSync');
+  if(!st||!st.last_success){ syncEl.innerHTML=''; }
+  else{
+    const mins=Math.max(0,Math.round((Date.now()-new Date(st.last_success).getTime())/60000));
+    const ago=mins<1?'just now':mins<60?mins+' min ago':mins<2880?Math.round(mins/60)+' hr ago':Math.round(mins/1440)+' days ago';
+    const stale=mins>180||!!st.last_error;
+    syncEl.innerHTML=`<span style="color:${stale?'var(--red)':'var(--muted)'}; font-weight:${stale?600:400}">${stale?'⚠ ':''}Planning Center synced ${ago}${stale?' — numbers may be out of date':''}</span>`+infoBtn('sync');
+  }
+
+  // ---- stat cards ----
+  const hands=usher('salvations',null,cid), cards=pco('decision','total',null,cid);
+  const open=pco('decision','open_count',null,cid), overdue=pco('decision','overdue_count',null,cid);
+  const done=pco('decision','completed_count',null,cid);
+  const interest=pco('baptism_interest','total',null,cid), interestOpen=pco('baptism_interest','open_count',null,cid);
+  const regs=pco('baptism_reg','total',null,cid), bapt=usher('baptisms',null,cid);
+  const frows=(fres.data||[]).filter(r=>!cid||r.campus_id===cid);
+  const decided=frows.reduce((a,r)=>a+(r.decided||0),0), decReg=frows.reduce((a,r)=>a+(r.registered||0),0);
+  document.getElementById('nextStats').innerHTML=`
+    <div class="stat"><div class="lbl">Hands raised (range)${infoBtn('hands')}</div><div class="val">${fmt(hands)}</div><span class="delta flat">from usher reports</span></div>
+    <div class="stat"><div class="lbl">Connect-card decisions${infoBtn('cards')}</div><div class="val">${fmt(cards)}</div><span class="delta flat">${pct(cards,hands)} of hands raised</span></div>
+    <div class="stat"><div class="lbl">Open follow-ups${infoBtn('open')}</div><div class="val">${fmt(open)}</div><span class="delta ${overdue?'down':'flat'}">${overdue?fmt(overdue)+' waiting over 7 days':open?'all within 7 days':'all caught up'}</span></div>
+    <div class="stat"><div class="lbl">Decision → baptism sign-up${infoBtn('funnel')}</div><div class="val">${fmt(decReg)} of ${fmt(decided)}</div><span class="delta flat">${pct(decReg,decided)} have registered</span></div>
+    <div class="stat"><div class="lbl">Baptism registrations${infoBtn('regs')}</div><div class="val">${fmt(regs)}</div><span class="delta flat">Planning Center sign-ups</span></div>
+    <div class="stat"><div class="lbl">Baptized (range)${infoBtn('baptized')}</div><div class="val">${fmt(bapt)}</div><span class="delta flat">from usher reports</span></div>`;
+
+  // ---- charts ----
+  const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+  mkChart('chNextDecisions','bar',{labels,datasets:[
+    {label:'Hands raised',data:weeks.map(w=>usher('salvations',w,cid)),backgroundColor:'#4f46e5',borderRadius:3},
+    {label:'Connect-card decisions',data:weeks.map(w=>pco('decision','total',w,cid)),backgroundColor:'#d97706',borderRadius:3}
+  ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+  mkChart('chNextBaptism','bar',{labels,datasets:[
+    {label:'Baptism registrations',data:weeks.map(w=>pco('baptism_reg','total',w,cid)),backgroundColor:'#0891b2',borderRadius:3},
+    {label:'Baptized',data:weeks.map(w=>usher('baptisms',w,cid)),backgroundColor:'#059669',borderRadius:3}
+  ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+
+  // ---- Baptism Sundays: match each registration to the next Baptism Sunday at its campus ----
+  const c=v=>`<td style="text-align:center">${v}</td>`;
+  const shown=cid?campuses.filter(x=>x.id===cid):campuses;
+  const allWeeks=[...new Set(erows.map(r=>r.week))].sort();
+  const events={}; const upcoming={reg:0,canceled:0};
+  shown.forEach(x=>{
+    const bw=w=>erows.filter(r=>r.week===w&&svcById[r.service_id].campus.id===x.id).reduce((a,r)=>a+(r.baptisms||0),0);
+    const evWeeks=allWeeks.filter(w=>bw(w)>=NEXT_EVENT_MIN);
+    evWeeks.forEach(w=>{ (events[w]=events[w]||{reg:0,bapt:0}).bapt+=bw(w); });
+    crows.filter(r=>r.source==='baptism_reg'&&r.campus_id===x.id).forEach(r=>{
+      const ev=evWeeks.find(w=>w>=r.week);
+      if(ev) events[ev].reg+=r.total||0;
+      else{ upcoming.reg+=(r.total||0)-(r.canceled||0); upcoming.canceled+=r.canceled||0; }
+    });
+  });
+  const nextBapt=st&&st.meta&&/^\d{4}-\d{2}-\d{2}$/.test(st.meta.next_baptism||'')?st.meta.next_baptism:null;
+  let eh='<thead><tr><th>Baptism Sunday</th><th style="text-align:center">Registered</th><th style="text-align:center">Baptized</th><th style="text-align:center">Baptized ÷ registered</th></tr></thead><tbody>';
+  eh+=`<tr><td class="campus">${nextBapt?fmtWeek(nextBapt):'Next Baptism Sunday'} <span class="pill">upcoming</span></td>${c(fmt(upcoming.reg)+(upcoming.canceled?` <span class="metric-group">${fmt(upcoming.canceled)} canceled</span>`:''))}${c('—')}${c('—')}</tr>`;
+  const evShown=Object.keys(events).filter(w=>inRange.has(w)).sort().reverse();
+  evShown.forEach(w=>{ eh+=`<tr><td class="campus">${fmtWeek(w)}</td>${c(fmt(events[w].reg))}${c(fmt(events[w].bapt))}${c(pct(events[w].bapt,events[w].reg))}</tr>`; });
+  if(!evShown.length) eh+=`<tr><td class="svc" colspan="4" style="padding:10px 6px">No Baptism Sundays in this range yet.</td></tr>`;
+  document.getElementById('nextEventsTable').innerHTML=eh+'</tbody>';
+
+  // ---- campus + week tables ----
+  const th=(label,key)=>`<th style="text-align:center">${label}${infoBtn(key)}</th>`;
+  const head=th('Hands raised','hands')+th('Connect cards','cards')+th('Cards ÷ hands','ratio')+th('Open follow-ups','open')+th('Baptism registrations','regs')+th('Baptized','baptized');
+  const line=(week,campusId)=>{
+    const h=usher('salvations',week,campusId), k=pco('decision','total',week,campusId);
+    return c(fmt(h))+c(fmt(k))+c(pct(k,h))+c(fmt(pco('decision','open_count',week,campusId)))
+      +c(fmt(pco('baptism_reg','total',week,campusId)))+c(fmt(usher('baptisms',week,campusId)));
+  };
+  let ch='<thead><tr><th>Campus</th>'+head+'</tr></thead><tbody>';
+  shown.forEach(x=>{ ch+=`<tr><td class="campus">${esc(x.name)}</td>${line(null,x.id)}</tr>`; });
+  if(shown.length>1) ch+=`<tr class="totals"><td>All campuses</td>${line(null,null)}</tr>`;
+  document.getElementById('nextCampusTable').innerHTML=ch+'</tbody>';
+
+  let wh='<thead><tr><th>Week</th>'+head+'</tr></thead><tbody>';
+  [...weeks].reverse().forEach(w=>{ wh+=`<tr><td class="campus">${fmtWeek(w)}</td>${line(w,cid)}</tr>`; });
+  document.getElementById('nextWeekTable').innerHTML=wh+'</tbody>';
+
+  document.getElementById('nextPeopleCard').style.display=admin?'':'none';
+  nextPeopleRows=(pres.data||[]).filter(r=>r.source!=='baptism_interest'&&(!cid||r.campus_id===cid));
+  nextRegIds=new Set((rres.data||[]).map(r=>r.pco_person_id).filter(Boolean));
+  if(admin) renderNextPeople();
+}
+function nextCampusName(id){ const x=campuses.find(k=>k.id===id); return x?x.name:''; }
+function nextDetail(r){
+  const day=86400000, start=new Date(r.occurred_at).getTime();
+  if(r.source==='baptism_reg') return '';
+  if(r.status==='ready'||r.status==='snoozed'){ const d=Math.floor((Date.now()-start)/day); return d<1?'Open today':'Open '+d+(d===1?' day':' days'); }
+  if(r.status==='completed'&&r.completed_at){ const d=Math.max(0,Math.round((new Date(r.completed_at).getTime()-start)/day)); return d<1?'Followed up same day':'Followed up in '+d+(d===1?' day':' days'); }
+  return '';
+}
+function renderNextPeople(){
+  const mode=document.getElementById('nPeopleSel').value;
+  const isOpen=r=>r.status==='ready'||r.status==='snoozed';
+  const rows=nextPeopleRows.filter(r=>r.status!=='removed' && (
+    mode==='open' ? (r.source==='decision'&&isOpen(r))
+    : mode==='open_interest' ? (r.source==='baptism_interest'&&isOpen(r))
+    : mode ? r.source===mode : true));
+  nextPeopleShown=rows;
+  const tbl=document.getElementById('nextPeopleTable');
+  if(!rows.length){ tbl.innerHTML='<tbody><tr><td class="empty">Nobody in this view for the selected range.</td></tr></tbody>'; return; }
+  let h='<thead><tr><th>Date</th><th>Name</th><th style="text-align:left">Campus</th><th style="text-align:left">Type</th><th style="text-align:left">Status</th><th style="text-align:left">Follow-up</th><th style="text-align:left">Baptism sign-up</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const d=new Date(r.occurred_at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+    const url=/^https:\/\/[a-z]+\.planningcenteronline\.com\//.test(r.pco_url||'')?r.pco_url:'';
+    const name=esc(r.person_name||'(no name)');
+    const detail=nextDetail(r), late=/^Open (\d+)/.test(detail)&&+RegExp.$1>7;
+    const reg=r.source==='baptism_reg'?'':(r.pco_person_id&&nextRegIds.has(r.pco_person_id)?'<span style="color:var(--green); font-weight:600">✓ Registered</span>':'<span style="color:var(--muted)">Not yet</span>');
+    h+=`<tr><td class="svc">${d}</td><td class="campus" style="font-weight:600">${url?`<a href="${esc(url)}" target="_blank" rel="noopener">${name}</a>`:name}</td>`
+      +`<td>${esc(nextCampusName(r.campus_id))}</td><td>${esc(NEXT_TYPE[r.source]||r.source)}</td>`
+      +`<td>${esc(NEXT_STATUS[r.status]||r.status)}</td><td style="${late?'color:var(--red); font-weight:600':''}">${esc(detail)}</td><td>${reg}</td></tr>`;
+  });
+  tbl.innerHTML=h+'</tbody>';
+}
+function exportNextPeople(){
+  if(myRole!=='admin'||!nextPeopleShown.length){ toast('Nothing to export in this view'); return; }
+  const safe=v=>{ let t=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
+  const rows=[['date','name','campus','type','status','follow_up','registered_for_baptism','planning_center_link']];
+  nextPeopleShown.forEach(r=>rows.push([String(r.occurred_at).slice(0,10),r.person_name||'',nextCampusName(r.campus_id),NEXT_TYPE[r.source]||r.source,
+    NEXT_STATUS[r.status]||r.status,nextDetail(r),r.source==='baptism_reg'?'':(r.pco_person_id&&nextRegIds.has(r.pco_person_id)?'yes':'no'),r.pco_url||'']));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(safe).join(',')).join('\n')],{type:'text/csv'}));
+  a.download='destinymetrics-next-steps-'+iso(new Date())+'.csv';
+  a.click(); toast('CSV downloaded');
+}
+
+/* ---------------- where the numbers come from ("i" buttons) ---------------- */
+const PCO_DECISION_WORKFLOWS=[
+  {campus:'Columbia',   name:'DC - (cc) Made a Decision for Christ', url:'https://people.planningcenteronline.com/workflows/436515'},
+  {campus:'Lewisburg',  name:'DL - (cc) Decision',                    url:'https://people.planningcenteronline.com/workflows/426876'},
+  {campus:'Shelbyville',name:'DS - (cc) Made a Decision for Christ', url:'https://people.planningcenteronline.com/workflows/665330'}
+];
+const PCO_BAPTISM_WORKFLOWS=[
+  {campus:'Columbia',   name:'DC: (cc) I Want To Be Baptized', url:'https://people.planningcenteronline.com/workflows/436544'},
+  {campus:'Lewisburg',  name:'DL - (cc) Baptism',              url:'https://people.planningcenteronline.com/workflows/426873'},
+  {campus:'Shelbyville',name:'DS - (cc) I want to baptized',   url:'https://people.planningcenteronline.com/workflows/665323'}
+];
+const PCO_BAPTISM_SIGNUP={name:'Baptism Sunday', url:'https://registrations.planningcenteronline.com/signups/2234946'};
+const wfLinks=()=>PCO_DECISION_WORKFLOWS.map(w=>({label:w.campus+' — '+w.name, url:w.url}));
+const SOURCES={
+  hands:{title:'Hands raised', from:'Usher reports',
+    crumb:['Usher Form','“Salvations” answer','DestinyMetrics','Enter Counts','Salvations'],
+    text:'What ushers submit on the Usher Form after each service, added up across every service in the range (Wednesday youth included).',
+    links:[{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
+  baptized:{title:'Baptized', from:'Usher reports',
+    crumb:['Usher Form','“Baptisms” answer','DestinyMetrics','Enter Counts','Baptisms'],
+    text:'What ushers submit on the Usher Form after each service, added up across every service in the range.',
+    links:[{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
+  cards:{title:'Connect-card decisions', from:'Planning Center People',
+    crumb:['Planning Center','People','Workflows','(campus) Decision for Christ workflow'],
+    text:'Everyone added to a campus’s decision workflow, counted in the week their card was created. Removed cards are left out. Updates hourly.',
+    links:wfLinks},
+  open:{title:'Open follow-ups', from:'Planning Center People',
+    crumb:['Planning Center','People','Workflows','(campus) Decision for Christ workflow','cards not completed'],
+    text:'Cards in the decision workflows that are still Ready or Snoozed — the people someone still needs to follow up with. Updates hourly.',
+    links:wfLinks},
+  ratio:{title:'Cards ÷ hands', from:'Calculated here',
+    crumb:['Connect cards','÷','Hands raised'],
+    text:'Connect-card decisions divided by hands raised for the same weeks and campus. It shows how many of the people who responded in service also turned in a card.',
+    links:[]},
+  regs:{title:'Baptism registrations', from:'Planning Center Registrations',
+    crumb:['Planning Center','Registrations','Signups',PCO_BAPTISM_SIGNUP.name,'Attendees'],
+    text:'People registered for Baptism Sunday, counted in the week they signed up and under the campus option they chose. Registrations later marked canceled are still counted. Updates hourly.',
+    links:[{label:PCO_BAPTISM_SIGNUP.name+' signup', url:PCO_BAPTISM_SIGNUP.url}]},
+  speed:{title:'Time to follow up', from:'Planning Center People',
+    crumb:['Planning Center','People','Workflows','(campus) Decision for Christ workflow','Completed cards'],
+    text:'For decision cards that have been completed: the average number of days between the card being created and being marked complete. Cards still open are not in the average — they show under Open follow-ups, flagged once they pass 7 days.',
+    links:wfLinks},
+  interest:{title:'Baptism interest cards', from:'Planning Center People',
+    crumb:['Planning Center','People','Workflows','(campus) “I want to be baptized” workflow'],
+    text:'People who marked baptism on a connect card, counted in the week their card was created. This is interest, not a registration — compare it with Baptism registrations to see who still needs to sign up. Updates hourly.',
+    links:()=>PCO_BAPTISM_WORKFLOWS.map(w=>({label:w.campus+' — '+w.name, url:w.url}))},
+  funnel:{title:'Decision → baptism sign-up', from:'Calculated from Planning Center',
+    crumb:['Decision for Christ workflow','matched by person to','Registrations › Baptism Sunday › Attendees'],
+    text:'Of the people with a decision card in this range, how many also have a Baptism Sunday registration (at any time, canceled or not). Admins can see who in the People list below.',
+    links:()=>wfLinks().concat([{label:PCO_BAPTISM_SIGNUP.name+' signup', url:PCO_BAPTISM_SIGNUP.url}])},
+  events:{title:'Baptism Sundays', from:'Usher reports + Planning Center',
+    crumb:['Registered: Planning Center › Registrations › Baptism Sunday','Baptized: Usher Form › Baptisms'],
+    text:'A Baptism Sunday is any week a campus’s ushers reported 3 or more baptisms. Each registration is matched to the next Baptism Sunday at its campus on or after the week the person signed up; sign-ups since the last one count toward the upcoming date. Past events count everyone who registered, including people later cleared or canceled. Baptized can be higher than registered when people are baptized without signing up.',
+    links:[{label:PCO_BAPTISM_SIGNUP.name+' signup', url:PCO_BAPTISM_SIGNUP.url},{label:'Open Enter Counts to see baptisms by service', view:'entry'}]},
+  sync:{title:'Planning Center sync', from:'Usher Form Apps Script',
+    crumb:['Usher Form sheet','Extensions','Apps Script','syncNextSteps','Executions'],
+    text:'Connect cards, baptism interest and baptism registrations are copied from Planning Center every hour. If the last successful copy is more than 3 hours old, or the last run failed, this turns red and the alert email recipients are notified. Usher-report numbers are not affected.',
+    links:[]},
+  adults:{title:'Adults (sanctuary)', from:'Usher reports',
+    crumb:['Usher Form','adult count for the service','DestinyMetrics','Enter Counts','Adults'],
+    text:'The sanctuary headcount ushers submit on the Usher Form after each service. For the “Youth (Wed)” rows it is the Wednesday youth check-in total from Planning Center Check-Ins instead. Anyone with edit access can also type a number in here.',
+    links:[{label:'Planning Center Check-Ins (Wednesday youth)', url:'https://check-ins.planningcenteronline.com/'}]},
+  kids:{title:'Kids', from:'Planning Center Check-Ins',
+    crumb:['Planning Center','Check-Ins','(campus) Destiny Kids event','Sunday check-in time','Regulars + Guests'],
+    text:'Kids checked in for each Sunday service time — regulars plus guests, volunteers left out. Pulled from Planning Center every hour on Sundays.',
+    links:[{label:'Columbia — Destiny Kids', url:'https://check-ins.planningcenteronline.com/events/1027835'},
+           {label:'Lewisburg — Destiny Kids Lewisburg', url:'https://check-ins.planningcenteronline.com/events/605454'},
+           {label:'Shelbyville — kids check-in event', url:'https://check-ins.planningcenteronline.com/events/898304'}]},
+  volunteers:{title:'Volunteers (unique people)', from:'Planning Center Services',
+    crumb:['Planning Center','Services','(campus) folder','Sunday plan','Scheduled people who haven’t declined'],
+    text:'The number of different people scheduled to serve at each service time across every team in the campus’s Services folder, not counting anyone who declined. A person on two teams counts once. Shown here as the Volunteers number in Enter Counts.',
+    links:[{label:'Planning Center Services', url:'https://services.planningcenteronline.com/'},{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
+  salvations:{title:'Salvations (hands raised)', from:'Usher reports',
+    crumb:['Usher Form','“Salvations” answer','DestinyMetrics','Enter Counts','Salvations'],
+    text:'What ushers submit on the Usher Form after each service. Anyone with edit access can also type a number in here.',
+    links:[{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
+  baptisms:{title:'Baptisms', from:'Usher reports',
+    crumb:['Usher Form','“Baptisms” answer','DestinyMetrics','Enter Counts','Baptisms'],
+    text:'What ushers submit on the Usher Form after each service. Anyone with edit access can also type a number in here.',
+    links:[{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
+  attend:{title:'Attendance', from:'Usher reports + Planning Center Check-Ins',
+    crumb:['Adults: Usher Form','+','Kids: Planning Center › Check-Ins','→','Enter Counts'],
+    text:'Sanctuary adults (usher reports) plus kids checked in (Planning Center Check-Ins), added across the weekend services. Wednesday youth is not included here — it has its own cards further down.',
+    links:[{label:'Open Enter Counts to see the numbers behind a week', view:'entry'},{label:'Planning Center Check-Ins (kids)', url:'https://check-ins.planningcenteronline.com/'}]},
+  attendAvg:{title:'Average weekly attendance', from:'Calculated here',
+    crumb:['Weekly attendance totals','averaged over the weeks that have data'],
+    text:'The average of the weekly weekend attendance totals (sanctuary + kids) in the selected range. Weeks with nothing entered are left out so they don’t drag the average down.',
+    links:[{label:'Open Enter Counts to see the numbers behind a week', view:'entry'}]},
+  campusAvg:{title:'Campus comparison', from:'Calculated here',
+    crumb:['Each campus’s weekly attendance','averaged over the weeks that have data'],
+    text:'Each campus’s average weekend attendance (sanctuary + kids) per week across the selected range. Always shows every campus, whatever the Campus filter is set to.',
+    links:[{label:'Open Enter Counts to see the numbers behind a week', view:'entry'}]},
+  serviceAvg:{title:'Service time breakdown', from:'Calculated here',
+    crumb:['Each service time’s attendance','averaged over the weeks that have data'],
+    text:'Average attendance (sanctuary + kids) for each Sunday service time across the selected range. Wednesday youth is left out.',
+    links:[{label:'Open Enter Counts to see the numbers behind a week', view:'entry'}]},
+  decisions:{title:'Salvations & baptisms', from:'Usher reports',
+    crumb:['Usher Form','“Salvations” and “Baptisms” answers','DestinyMetrics','Enter Counts'],
+    text:'What ushers submit on the Usher Form after each weekend service, added up by week. Wednesday youth rows are not included on the Dashboard — the Next Steps tab counts every service.',
+    links:[{label:'Open Enter Counts to see each service’s number', view:'entry'},{label:'Open the Next Steps tab', view:'next'}]},
+  summary:{title:'Sunday Service Summary', from:'Usher reports + Planning Center',
+    crumb:['Enter Counts','all weekend services for the week','added together'],
+    text:'One row per week: every weekend service at the selected campus (or all campuses) added together. Tap the i on a column for where that number comes from.',
+    links:[{label:'Open Enter Counts to see the numbers behind a week', view:'entry'}]},
+  wed:{title:'Wednesday youth attendance', from:'Planning Center Check-Ins',
+    crumb:['Planning Center','Check-Ins','(campus) Wednesday youth event','Check-ins for the night'],
+    text:'Wednesday youth check-ins from Planning Center, stored on each campus’s “Youth (Wed)” row. Rows are dated by the Wednesday; in Enter Counts they sit under that week’s Sunday.',
+    links:[{label:'Planning Center Check-Ins', url:'https://check-ins.planningcenteronline.com/'},{label:'Open Enter Counts (Youth (Wed) rows)', view:'entry'}]},
+  teams:{title:'Volunteers by team', from:'Planning Center Services',
+    crumb:['Planning Center','Services','(campus) folder','Sunday plan','Teams','Scheduled people who haven’t declined'],
+    text:'Scheduled team spots for each service, by team. Someone serving on two teams counts twice here, so this runs higher than Unique people. Similar team names are grouped unless “Raw team names” is ticked.',
+    links:[{label:'Planning Center Services', url:'https://services.planningcenteronline.com/'}]},
+  teamsAvg:{title:'Average weekly volunteers', from:'Calculated here',
+    crumb:['Weekly scheduled team spots','averaged over the weeks that have data'],
+    text:'The average of the weekly scheduled-team-spot totals in the selected range, leaving out weeks with no data.',
+    links:[{label:'Planning Center Services', url:'https://services.planningcenteronline.com/'}]},
+  teamCount:{title:'Teams', from:'Planning Center Services',
+    crumb:['Planning Center','Services','(campus) folder','Teams with someone scheduled'],
+    text:'How many different teams had at least one person scheduled in the selected range, after similar team names are grouped.',
+    links:[{label:'Planning Center Services', url:'https://services.planningcenteronline.com/'}]},
+  decisionsChart:{title:'Decisions by week', from:'Usher reports + Planning Center People',
+    crumb:['Hands raised: Usher Form › Salvations','Connect cards: Planning Center › People › Workflows'],
+    text:'Each week’s hands raised (usher reports, all services) next to the decision connect cards created that week in Planning Center. The gap is people who responded in service but didn’t turn in a card.',
+    links:()=>wfLinks().concat([{label:'Open Enter Counts to see hands raised by service', view:'entry'}])},
+  baptismChart:{title:'Baptism by week', from:'Planning Center Registrations + usher reports',
+    crumb:['Registrations: Planning Center › Registrations › Baptism Sunday','Baptized: Usher Form › Baptisms'],
+    text:'Baptism Sunday sign-ups by the week people registered, next to baptisms ushers reported that week. Sign-ups build up in the weeks before a Baptism Sunday — the Baptism Sundays table below lines them up per event.',
+    links:[{label:PCO_BAPTISM_SIGNUP.name+' signup', url:PCO_BAPTISM_SIGNUP.url},{label:'Open Enter Counts to see baptisms by service', view:'entry'}]},
+  nextTables:{title:'Next Steps tables', from:'Usher reports + Planning Center',
+    crumb:['Usher Form','+','Planning Center › People › Workflows','+','Planning Center › Registrations'],
+    text:'The same numbers as the cards at the top, split by campus or by week. Each column has its own i with where to verify it.',
+    links:[]},
+  people:{title:'People list', from:'Planning Center',
+    crumb:['Planning Center','People','Workflows  /  Registrations','Signups'],
+    text:'The same decision-workflow cards and Baptism Sunday registrations behind the counts above. Each name opens that person in Planning Center.',
+    links:()=>wfLinks().concat([{label:PCO_BAPTISM_SIGNUP.name+' signup', url:PCO_BAPTISM_SIGNUP.url}])}
+};
+function infoBtn(key){
+  const s=SOURCES[key]; if(!s) return '';
+  return `<button type="button" class="info-btn" onclick="showSource(event,'${key}')" aria-label="Where ${esc(s.title)} comes from" aria-expanded="false">i</button>`;
+}
+let srcBtn=null;
+function closeSource(){
+  const pop=document.getElementById('srcPop');
+  if(pop) pop.classList.remove('open');
+  if(srcBtn){ srcBtn.setAttribute('aria-expanded','false'); srcBtn=null; }
+}
+function showSource(e,key){
+  e.stopPropagation();
+  const btn=e.currentTarget, pop=document.getElementById('srcPop'), s=SOURCES[key];
+  if(srcBtn===btn){ closeSource(); return; }
+  closeSource();
+  if(!s) return;
+  const links=typeof s.links==='function'?s.links():s.links;
+  pop.innerHTML=`<button type="button" class="x" onclick="closeSource()" aria-label="Close">&times;</button>
+    <h3>${esc(s.title)} <span class="pill">${esc(s.from)}</span></h3>
+    <p>${esc(s.text)}</p>
+    <div class="lbl">Where to find it</div>
+    <div class="crumb">${s.crumb.map(esc).join('<span>›</span>')}</div>`
+    +(links.length?`<div class="lbl">Verify</div><ul>${links.map(l=>l.view
+        ?`<li><button type="button" class="link" onclick="closeSource();show('${l.view}')">${esc(l.label)}</button></li>`
+        :`<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a></li>`).join('')}</ul>`:'');
+  pop.classList.add('open');
+  const r=btn.getBoundingClientRect(), w=pop.offsetWidth, vw=document.documentElement.clientWidth;
+  let left=r.left+window.scrollX+r.width/2-w/2;
+  left=Math.max(window.scrollX+10,Math.min(left,window.scrollX+vw-w-10));
+  pop.style.left=left+'px';
+  pop.style.top=(r.bottom+window.scrollY+8)+'px';
+  srcBtn=btn; btn.setAttribute('aria-expanded','true');
+}
+document.addEventListener('click',e=>{ const pop=document.getElementById('srcPop'); if(pop&&!pop.contains(e.target)) closeSource(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const b=srcBtn; closeSource(); if(b) b.focus(); } });
+
+/* ---------------- settings ---------------- */
+async function renderSettings(){
+  const admin=myRole==='admin';
+  document.getElementById('usersCard').style.display=admin?'':'none';
+  document.getElementById('addCampusRow').style.display=admin?'':'none';
+
+  const cl=document.getElementById('campusList');
+  cl.innerHTML=campuses.map(c=>`
+    <div class="campus-card">
+      <div class="head">
+        <span class="name">${esc(c.name)}</span>
+        ${admin?`<button class="btn ghost sm" onclick="renameCampus('${c.id}')">Rename</button>
+        <button class="btn danger sm" onclick="delCampus('${c.id}')">Delete campus</button>`:''}
+      </div>
+      <div>
+        ${c.services.map(s=>`<span class="svc-chip">${esc(s.label)}${admin?`<button title="Remove" onclick="delService('${s.id}')">&times;</button>`:''}</span>`).join('')
+          || '<span class="hint">No service times yet.</span>'}
+      </div>
+      ${admin?`<div class="row" style="margin-top:8px">
+        <input type="text" id="svc_${c.id}" placeholder="e.g. 5:00 PM" style="width:150px" onkeydown="if(event.key==='Enter')addService('${c.id}')">
+        <button class="btn ghost sm" onclick="addService('${c.id}')">Add service time</button>
+      </div>`:''}
+    </div>`).join('') || '<div class="empty">No campuses yet</div>';
+
+  if(admin) renderUsers();
+}
+async function renderUsers(){
+  const [{data:profs,error:e1},{data:uc}]=await Promise.all([
+    sb.from('profiles').select('*').order('email'),
+    sb.from('user_campuses').select('*')
+  ]);
+  if(e1){ toast(e1.message,true); return; }
+  const assigned=(uid,cid)=>(uc||[]).some(r=>r.user_id===uid&&r.campus_id===cid);
+  let html='<thead><tr><th>User</th><th>Role</th><th>Can enter counts for</th></tr></thead><tbody>';
+  (profs||[]).forEach(p=>{
+    html+=`<tr><td>${esc(p.email||p.id)}</td>
+      <td><select onchange="setRole('${p.id}',this.value)" ${p.id===me.id?'disabled':''}>
+        <option value="counter" ${p.role==='counter'?'selected':''}>Counter</option>
+        <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
+      </select></td>
+      <td>${p.role==='admin'?'<span class="hint">All campuses (admin)</span>'
+        :campuses.map(c=>`<label><input type="checkbox" ${assigned(p.id,c.id)?'checked':''} onchange="setAssign('${p.id}','${c.id}',this.checked)"> ${esc(c.name)}</label>`).join('')}
+      </td></tr>`;
+  });
+  document.getElementById('usersTable').innerHTML=html+'</tbody>';
+}
+async function setRole(uid,role){
+  const {error}=await sb.from('profiles').update({role}).eq('id',uid);
+  if(error) toast(error.message,true); else { toast('Role updated'); renderUsers(); }
+}
+async function setAssign(uid,cid,on){
+  const {error}=on
+    ? await sb.from('user_campuses').insert({user_id:uid,campus_id:cid})
+    : await sb.from('user_campuses').delete().eq('user_id',uid).eq('campus_id',cid);
+  if(error) toast(error.message,true); else toast(on?'Campus assigned':'Campus removed');
+}
+async function addCampus(){
+  const el=document.getElementById('newCampus'); const name=el.value.trim();
+  if(!name) return;
+  const {error}=await sb.from('campuses').insert({name,sort_order:campuses.length+1});
+  if(error){ toast(error.message,true); return; }
+  el.value=''; await loadMeta(); renderSettings(); toast('Campus added');
+}
+async function renameCampus(id){
+  const c=campuses.find(c=>c.id===id);
+  const name=prompt('Rename campus',c.name);
+  if(!name||!name.trim()) return;
+  const {error}=await sb.from('campuses').update({name:name.trim()}).eq('id',id);
+  if(error){ toast(error.message,true); return; }
+  await loadMeta(); renderSettings();
+}
+async function delCampus(id){
+  const c=campuses.find(c=>c.id===id);
+  if(!confirm(`Delete "${c.name}" and ALL its counts? This cannot be undone.`)) return;
+  const {error}=await sb.from('campuses').delete().eq('id',id);
+  if(error){ toast(error.message,true); return; }
+  weekCache={}; await loadMeta(); renderSettings();
+}
+async function addService(cid){
+  const c=campuses.find(c=>c.id===cid);
+  const el=document.getElementById('svc_'+cid); const label=el.value.trim();
+  if(!label) return;
+  const {error}=await sb.from('services').insert({campus_id:cid,label,sort_order:c.services.length+1});
+  if(error){ toast(error.message,true); return; }
+  el.value=''; await loadMeta(); renderSettings(); toast(`Added ${label} at ${c.name}`);
+}
+async function delService(sid){
+  const info=svcById[sid];
+  if(!confirm(`Remove the ${info.service.label} service at ${info.campus.name} and all its counts?`)) return;
+  const {error}=await sb.from('services').delete().eq('id',sid);
+  if(error){ toast(error.message,true); return; }
+  weekCache={}; await loadMeta(); renderSettings();
+}
+
+/* ---------------- CSV ---------------- */
+async function exportCSV(){
+  const {data,error}=await sb.from('entries').select('*').order('week');
+  if(error){ toast(error.message,true); return; }
+  const rows=[['week','service','campus','metric','value']];
+  (data||[]).forEach(r=>{
+    const info=svcById[r.service_id]; if(!info) return;
+    METRICS.forEach(m=>{ if(r[m.key]!=null) rows.push([r.week,info.service.label,info.campus.name,m.key,r[m.key]]); });
+  });
+  const csv=rows.map(r=>r.map(v=>/[",\n]/.test(String(v))?'"'+String(v).replace(/"/g,'""')+'"':v).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='destinymetrics-'+iso(new Date())+'.csv';
+  a.click(); toast('CSV downloaded');
+}
+function importCSVFile(input){
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>importCSVText(r.result);
+  r.readAsText(f); input.value='';
+}
+function parseCSVLine(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ out.push(cur); cur=''; }
+    else cur+=ch;
+  }
+  out.push(cur); return out;
+}
+async function importCSVText(text){
+  if(!text||!text.trim()){ toast('Nothing to import'); return; }
+  const lines=text.trim().split(/\r?\n/);
+  const metricKeys=new Set(METRICS.map(m=>m.key));
+  const admin=myRole==='admin';
+  const pending={};  // "week|sid" -> {week, service_id, metrics...}
+  let ok=0, bad=0, skipped=0;
+
+  for(let i=0;i<lines.length;i++){
+    const cells=parseCSVLine(lines[i]).map(s=>s.trim());
+    if(i===0 && cells[0].toLowerCase()==='week') continue;
+    if(cells.length<5){ bad++; continue; }
+    let [w,svcLabel,campusName,metric,val]=cells;
+    metric=metric.toLowerCase();
+    const number=Number(val);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(w)||!metricKeys.has(metric)||val===''||!Number.isSafeInteger(number)||number<0||number>2147483647){ bad++; continue; }
+    w=iso(sundayOf(fromISO(w)));
+    let c=campuses.find(c=>c.name.toLowerCase()===campusName.toLowerCase());
+    if(!c){
+      if(!admin){ skipped++; continue; }
+      const {data,error}=await sb.from('campuses').insert({name:campusName,sort_order:campuses.length+1}).select().single();
+      if(error){ bad++; continue; }
+      c={...data,services:[]}; campuses.push(c);
+    }
+    let s=c.services.find(s=>s.label.toLowerCase()===svcLabel.toLowerCase());
+    if(!s){
+      if(!admin){ skipped++; continue; }
+      const {data,error}=await sb.from('services').insert({campus_id:c.id,label:svcLabel,sort_order:c.services.length+1}).select().single();
+      if(error){ bad++; continue; }
+      s=data; c.services.push(s); svcById[s.id]={service:s,campus:c};
+    }
+    if(!admin && !myCampuses.has(c.id)){ skipped++; continue; }
+    const k=w+'|'+s.id;
+    if(!pending[k]) pending[k]={week:w,service_id:s.id,updated_by:me.id,updated_at:new Date().toISOString()};
+    pending[k][metric]=number;
+    ok++;
+  }
+
+  // merge with existing rows so unspecified metrics aren't nulled
+  const rows=Object.values(pending);
+  if(rows.length){
+    const weeksTouched=[...new Set(rows.map(r=>r.week))];
+    const {data:existing}=await sb.from('entries').select('*').in('week',weeksTouched);
+    const exMap={}; (existing||[]).forEach(r=>exMap[r.week+'|'+r.service_id]={...r});
+    const full=rows.map(r=>{
+      const ex=exMap[r.week+'|'+r.service_id]||{};
+      const row={week:r.week,service_id:r.service_id,updated_by:me.id,updated_at:r.updated_at};
+      METRICS.forEach(m=>row[m.key]= r[m.key]!=null ? r[m.key] : (ex[m.key]!=null?ex[m.key]:null));
+      return row;
+    });
+    for(let i=0;i<full.length;i+=200){
+      const {error}=await sb.from('entries').upsert(full.slice(i,i+200),{onConflict:'week,service_id'});
+      if(error){ toast('Import failed partway: '+error.message,true); return; }
+    }
+  }
+  weekCache={};
+  await loadMeta(); renderSettings();
+  toast(`Imported ${ok} counts`+(skipped?`, ${skipped} skipped (no access)`:'')+(bad?`, ${bad} bad rows`:''));
+}
+
+/* ---------------- one-click migration from the offline version ---------------- */
+async function importLocal(){
+  let old=null;
+  try{ old=JSON.parse(localStorage.getItem('campusmetrics_v1')); }catch(e){}
+  if(!old||!old.entries||!Object.keys(old.entries).length){ toast('No offline data found in this browser'); return; }
+  const cname=Object.fromEntries((old.campuses||[]).map(c=>[c.id,c.name]));
+  const lines=['week,service,campus,metric,value'];
+  for(const k in old.entries){
+    const [w,svc,cid]=k.split('|');
+    for(const m in old.entries[k]) lines.push([w,svc,cname[cid]||cid,m,old.entries[k][m]].join(','));
+  }
+  if(!confirm(`Found ${lines.length-1} counts from the offline version. Import them into the shared database?`)) return;
+  await importCSVText(lines.join('\n'));
+}
+
+/* ---------------- misc ---------------- */
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(n){ return (n||0).toLocaleString(); }
+let toastTimer=null;
+function toast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(isErr?' err':'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+boot();
+</script>
+
+
+</body></html>
