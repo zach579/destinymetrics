@@ -96,6 +96,11 @@
   .src-pop a,.src-pop button.link{color:var(--accent); background:none; border:0; padding:0; font-size:13px; cursor:pointer; text-decoration:underline; text-align:left}
   .src-pop .x{position:absolute; top:8px; right:10px; border:0; background:none; font-size:18px; line-height:1; color:var(--muted); cursor:pointer; padding:4px}
   .pill{background:var(--accent-soft); color:var(--accent); border-radius:20px; padding:2px 10px; font-size:12px; font-weight:600}
+  table.gt td{padding:4px; border-bottom:1px solid var(--line); font-size:13.5px; vertical-align:top}
+  table.gt input[type=text],table.gt input[type=date],table.gt input:not([type]),table.gt textarea{width:100%; min-width:90px; padding:5px; border:1px solid var(--line); border-radius:6px; font-size:13.5px; font-family:inherit}
+  table.gt input[type=date]{min-width:128px}
+  table.gt tr.gt-detail td{background:#fafbfc}
+  .gt-due{color:var(--red); font-weight:600}
   .empty{text-align:center; color:var(--muted); padding:40px 0}
   textarea.csv{width:100%; height:120px; font-family:ui-monospace,monospace; font-size:12px; border:1px solid var(--line); border-radius:7px; padding:10px}
   /* login */
@@ -177,6 +182,7 @@
     <button data-view="dash" class="active" onclick="show('dash')">Dashboard</button>
     <button data-view="vols" onclick="show('vols')">Volunteers</button>
     <button data-view="next" onclick="show('next')">Next Steps</button>
+    <button data-view="gt" onclick="show('gt')">Growth Track</button>
     <button data-view="entry" onclick="show('entry')">Enter Counts</button>
   </nav>
   <div class="who">
@@ -364,6 +370,41 @@
     </div>
   </section>
 
+  <!-- ============ GROWTH TRACK ============ -->
+  <section id="view-gt" style="display:none">
+    <div class="card">
+      <div class="row filter-row" style="align-items:center">
+        <label>Campus <select id="gtCampusSel" onchange="renderGT()" style="margin-left:6px"></select></label>
+        <label>Show
+          <select id="gtShowSel" onchange="renderGTPeople()" style="margin-left:6px">
+            <option value="">Everyone</option>
+            <option value="active">Not finished (missing a step)</option>
+            <option value="done">Finished all 3 steps</option>
+            <option value="noteam">Finished, no team yet</option>
+          </select>
+        </label>
+        <input id="gtSearch" placeholder="Search name…" oninput="renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
+        <span style="margin-left:auto"></span>
+        <button class="btn sm" id="gtAddBtn" onclick="addGTPerson()">+ Add person</button>
+        <button class="btn ghost sm" onclick="exportGT()">Export CSV</button>
+      </div>
+    </div>
+    <div class="cards" id="gtStats"></div>
+    <div class="card">
+      <h2>Growth Track by month <span class="pill">started vs. finished all 3 steps · by start month</span></h2>
+      <div class="chartbox short"><canvas id="chGT"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Follow-up due <span class="pill">15 / 30 / 45 days after start · not on a team yet</span></h2>
+      <div class="table-scroll"><table class="grid" id="gtDueTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>People</h2>
+      <div class="table-scroll"><table class="gt grid" id="gtTable"></table></div>
+      <p class="hint">Edits save automatically. Tap <b>▸</b> for contact details, birth date, address, kids and notes.</p>
+    </div>
+  </section>
+
   <!-- ============ SETTINGS ============ -->
   <section id="view-settings" style="display:none">
     <div class="card" id="usersCard" style="display:none">
@@ -530,7 +571,7 @@ function lastNWeeks(n){
 function show(v){
   currentViewId=v;
   closeSource();
-  for(const id of ['entry','dash','vols','next','settings'])
+  for(const id of ['entry','dash','vols','next','gt','settings'])
     document.getElementById('view-'+id).style.display = id===v?'':'none';
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   closeMenu();
@@ -538,6 +579,7 @@ function show(v){
   if(v==='dash') renderDash();
   if(v==='vols') renderVols();
   if(v==='next') renderNext();
+  if(v==='gt') renderGT();
   if(v==='settings') renderSettings();
 }
 function closeMenu(){
@@ -1223,6 +1265,138 @@ function exportNextPeople(){
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(safe).join(',')).join('\n')],{type:'text/csv'}));
   a.download='destinymetrics-next-steps-'+iso(new Date())+'.csv';
+  a.click(); toast('CSV downloaded');
+}
+
+/* ---------------- Growth Track ---------------- */
+let gtRows=[], gtShown=[], gtOpen=new Set(), gtRenderToken=0;
+const GT_BOOLS=[['bg_invite','BG invite'],['added_slack','Slack'],['follow_up_wf','F/U WF'],['team_joined','Team']];
+const GT_DUE=[15,30,45], GT_DUE_WINDOW=3;
+function gtCampusName(id){ const c=campuses.find(c=>c.id===id); return c?c.name:'—'; }
+function gtDays(s){ return s?Math.round((new Date().setHours(12,0,0,0)-fromISO(s).getTime())/86400000):null; }
+function gtFmt(s){ return s?fromISO(s).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''; }
+function gtDone(r){ return !!(r.step1_date&&r.step2_date&&r.step3_date); }
+async function renderGT(){
+  const my=++gtRenderToken;
+  const sel=document.getElementById('gtCampusSel'), prev=sel.value;
+  const vis=campuses.filter(c=>myRole==='admin'||myCampuses.has(c.id));
+  sel.innerHTML=(vis.length>1?'<option value="">All campuses</option>':'')+vis.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
+  document.getElementById('gtAddBtn').style.display=vis.length?'':'none';
+  let q=sb.from('growth_track_people').select('*').order('start_date',{ascending:false,nullsFirst:false}).order('name');
+  if(sel.value) q=q.eq('campus_id',sel.value);
+  const {data,error}=await q;
+  if(my!==gtRenderToken) return;
+  if(error){ toast(error.message,true); return; }
+  gtRows=data||[];
+  renderGTStats(); renderGTChart(); renderGTDue(); renderGTPeople();
+}
+function renderGTStats(){
+  const started=gtRows.length, done=gtRows.filter(gtDone).length, team=gtRows.filter(r=>r.team_joined).length;
+  const due=gtRows.filter(gtIsDue).length;
+  const pct=n=>started?Math.round(100*n/started)+'% of starters':'';
+  document.getElementById('gtStats').innerHTML=[
+    ['Started',started,''],['Finished all 3 steps',done,pct(done)],['Joined a team',team,pct(team)],['Follow-ups due now',due,'']
+  ].map(([l,v,d])=>`<div class="stat"><div class="lbl">${l}</div><div class="val">${v}</div><div class="delta" style="color:var(--muted)">${d}</div></div>`).join('');
+}
+function renderGTChart(){
+  const by={};
+  gtRows.forEach(r=>{ if(!r.start_date) return; const k=r.start_date.slice(0,7); by[k]=by[k]||{s:0,d:0,t:0}; by[k].s++; if(gtDone(r)) by[k].d++; if(r.team_joined) by[k].t++; });
+  const keys=Object.keys(by).sort();
+  const labels=keys.map(k=>fromISO(k+'-01').toLocaleDateString(undefined,{month:'short',year:'numeric'}));
+  mkChart('chGT','bar',{labels,datasets:[
+    {label:'Started',data:keys.map(k=>by[k].s),backgroundColor:'#93c5fd'},
+    {label:'Finished all 3 steps',data:keys.map(k=>by[k].d),backgroundColor:'#2563eb'},
+    {label:'Joined a team',data:keys.map(k=>by[k].t),backgroundColor:'#16a34a'}]});
+}
+function gtDueMark(r){
+  if(r.team_joined||!r.start_date) return null;
+  const d=gtDays(r.start_date);
+  return GT_DUE.find(m=>Math.abs(d-m)<=GT_DUE_WINDOW)||null;
+}
+function gtIsDue(r){ return !!gtDueMark(r); }
+function renderGTDue(){
+  const rows=gtRows.filter(gtIsDue).sort((a,b)=>gtDueMark(a)-gtDueMark(b)||a.name.localeCompare(b.name));
+  const t=document.getElementById('gtDueTable');
+  if(!rows.length){ t.innerHTML='<tbody><tr><td class="empty">No 15/30/45-day follow-ups due right now.</td></tr></tbody>'; return; }
+  let h='<thead><tr><th>Due</th><th>Name</th><th style="text-align:left">Campus</th><th style="text-align:left">Started</th><th style="text-align:left">Steps</th><th style="text-align:left">Phone</th><th style="text-align:left">Host</th><th style="text-align:left">Notes</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const steps=[r.step1_date,r.step2_date,r.step3_date].map((x,i)=>x?'✓'+(i+1):'·'+(i+1)).join(' ');
+    h+=`<tr><td class="gt-due">${gtDueMark(r)}-day</td><td class="campus">${esc(r.name)}</td><td>${esc(gtCampusName(r.campus_id))}</td><td>${gtFmt(r.start_date)} (${gtDays(r.start_date)}d)</td><td>${steps}</td><td>${esc(r.phone||'')}</td><td>${esc(r.table_host||'')}</td><td>${esc(r.notes||'')}</td></tr>`;
+  });
+  t.innerHTML=h+'</tbody>';
+}
+function renderGTPeople(){
+  const mode=document.getElementById('gtShowSel').value, term=document.getElementById('gtSearch').value.trim().toLowerCase();
+  const rows=gtRows.filter(r=>(!term||(r.name||'').toLowerCase().includes(term)) &&
+    (mode==='active'?!gtDone(r):mode==='done'?gtDone(r):mode==='noteam'?(gtDone(r)&&!r.team_joined):true));
+  gtShown=rows;
+  const t=document.getElementById('gtTable');
+  if(!rows.length){ t.innerHTML='<tbody><tr><td class="empty">Nobody in this view yet.</td></tr></tbody>'; return; }
+  const allC=!document.getElementById('gtCampusSel').value;
+  let h=`<thead><tr><th></th><th>Name</th>${allC?'<th>Campus</th>':''}<th>Start</th><th>Step 1</th><th>Step 2</th><th>Step 3</th><th>Table host</th><th>Team preference</th>${GT_BOOLS.map(b=>`<th>${b[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
+  const inp=(r,f,type,ed)=>`<input ${type?`type="${type}"`:''} value="${esc(r[f]||'')}" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)" aria-label="${esc(f)}">`;
+  rows.forEach(r=>{
+    const ed=canEdit(r.campus_id), open=gtOpen.has(r.id);
+    h+=`<tr><td><button class="btn ghost sm" onclick="toggleGT('${r.id}')" aria-label="Details" aria-expanded="${open}">${open?'▾':'▸'}</button></td>`
+      +`<td>${inp(r,'name','',ed)}</td>${allC?`<td class="svc">${esc(gtCampusName(r.campus_id))}</td>`:''}`
+      +`<td>${inp(r,'start_date','date',ed)}</td><td>${inp(r,'step1_date','date',ed)}</td><td>${inp(r,'step2_date','date',ed)}</td><td>${inp(r,'step3_date','date',ed)}</td>`
+      +`<td>${inp(r,'table_host','',ed)}</td><td>${inp(r,'team_preference','',ed)}</td>`
+      +GT_BOOLS.map(([f,l])=>`<td style="text-align:center"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)" aria-label="${l}"></td>`).join('')
+      +`<td>${ed?`<button class="btn danger sm" onclick="deleteGT('${r.id}')" aria-label="Delete">✕</button>`:''}</td></tr>`;
+    if(open){
+      const ta=f=>`<textarea rows="2" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)">${esc(r[f]||'')}</textarea>`;
+      const cols=10+GT_BOOLS.length+(allC?1:0);
+      h+=`<tr class="gt-detail"><td></td><td colspan="${cols-1}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;padding:6px 0">`
+        +`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
+        +`<label>Address ${inp(r,'address','',ed)}</label><label>Children ${ta('children')}</label><label>Gifts ${inp(r,'gifts','',ed)}</label>`
+        +`<label>Notes ${ta('notes')}</label><label>Something they’d like to know ${ta('question')}</label>`
+        +`<div class="hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')}</div></div></td></tr>`;
+    }
+  });
+  t.innerHTML=h+'</tbody>';
+}
+function toggleGT(id){ gtOpen.has(id)?gtOpen.delete(id):gtOpen.add(id); renderGTPeople(); }
+async function saveGT(id,field,value){
+  const r=gtRows.find(x=>x.id===id); if(!r) return;
+  if(typeof value==='string'){ value=value.trim(); if(value==='') value=null; }
+  if(field==='name'&&!value){ toast('Name can’t be blank',true); renderGTPeople(); return; }
+  const {error}=await sb.from('growth_track_people').update({[field]:value}).eq('id',id);
+  if(error){ toast('Not saved: '+error.message,true); return; }
+  r[field]=value; toast('Saved');
+  renderGTStats(); renderGTChart(); renderGTDue();
+  if(['start_date','step1_date','step2_date','step3_date','team_joined'].includes(field)) renderGTPeople();
+}
+async function addGTPerson(){
+  const vis=campuses.filter(c=>canEdit(c.id));
+  let cid=document.getElementById('gtCampusSel').value || (vis.length===1?vis[0].id:'');
+  if(!cid){
+    const ans=prompt('Which campus?\n'+vis.map((c,i)=>`${i+1}. ${c.name}`).join('\n'),'1');
+    const c=vis[(+ans||0)-1]; if(!c) return; cid=c.id;
+  }
+  if(!canEdit(cid)){ toast('You don’t have access to that campus',true); return; }
+  const name=(prompt('Name')||'').trim(); if(!name) return;
+  const start=iso(sundayOf(new Date()));
+  const {data,error}=await sb.from('growth_track_people').insert({campus_id:cid,name,start_date:start,step1_date:start,source:'manual'}).select().single();
+  if(error){ toast(error.message,true); return; }
+  gtRows.unshift(data); gtOpen.add(data.id); toast(`Added ${name}`);
+  renderGTStats(); renderGTChart(); renderGTDue(); renderGTPeople();
+}
+async function deleteGT(id){
+  const r=gtRows.find(x=>x.id===id); if(!r||!confirm(`Delete ${r.name} from Growth Track?`)) return;
+  const {error}=await sb.from('growth_track_people').delete().eq('id',id);
+  if(error){ toast(error.message,true); return; }
+  gtRows=gtRows.filter(x=>x.id!==id); toast('Deleted');
+  renderGTStats(); renderGTChart(); renderGTDue(); renderGTPeople();
+}
+function exportGT(){
+  if(!gtShown.length){ toast('Nothing to export in this view'); return; }
+  const safe=v=>{ let t=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
+  const f=['start_date','name','phone','email','birth_date','address','children','table_host','step1_date','step2_date','step3_date','gifts','team_preference','bg_invite','added_slack','follow_up_wf','team_joined','notes','question','source'];
+  const rows=[['campus',...f]]; gtShown.forEach(r=>rows.push([gtCampusName(r.campus_id),...f.map(k=>r[k])]));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(safe).join(',')).join('\n')],{type:'text/csv'}));
+  a.download='destinymetrics-growth-track-'+iso(new Date())+'.csv';
   a.click(); toast('CSV downloaded');
 }
 
