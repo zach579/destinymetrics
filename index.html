@@ -101,6 +101,36 @@
   table.gt input[type=date]{min-width:128px}
   table.gt tr.gt-detail td{background:#fafbfc}
   .gt-due{color:var(--red); font-weight:600}
+  details.fold{margin-bottom:18px}
+  details.fold>summary{cursor:pointer; list-style:none; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 18px; font-weight:600; font-size:14px}
+  details.fold>summary::-webkit-details-marker{display:none}
+  details.fold>summary::before{content:'▸ '; color:var(--muted)}
+  details.fold[open]>summary::before{content:'▾ '}
+  details.fold[open]>summary{margin-bottom:12px}
+  .glance{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-bottom:18px}
+  .glance a{display:block; text-decoration:none; color:inherit; background:var(--card); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:10px; padding:12px 14px; cursor:pointer}
+  .glance a.warn{border-left-color:var(--red)}
+  .glance a.ok{border-left-color:var(--green)}
+  .glance b{font-size:20px; margin-right:6px}
+  .glance small{display:block; color:var(--muted); font-size:12px; margin-top:2px}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; margin-left:auto}
+  .seg button{border:0; background:var(--card); padding:6px 12px; font-size:13px; cursor:pointer; color:var(--muted)}
+  .seg button.on{background:var(--accent); color:#fff}
+  .badge{display:inline-block; min-width:22px; padding:1px 7px; border-radius:11px; font-size:12px; font-weight:700; background:var(--line); color:var(--ink); text-align:center}
+  .badge.red{background:#fee2e2; color:var(--red)}
+  .stepb{display:inline-block; padding:2px 7px; margin-right:3px; border-radius:6px; font-size:12px; font-weight:600; background:#f1f5f9; color:var(--muted)}
+  .stepb.on{background:#dcfce7; color:#15803d}
+  tr.gt-group td{background:var(--accent-soft); font-weight:700; cursor:pointer; padding:8px 6px; font-size:13.5px}
+  .gt-cards{display:none}
+  .gt-card{border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:var(--card)}
+  .gt-card .top{display:flex; justify-content:space-between; align-items:center; gap:8px}
+  .gt-card .nm{font-weight:600}
+  .gt-card .sub{font-size:12.5px; color:var(--muted); margin-top:3px}
+  .gt-card .ed{display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:10px; font-size:12.5px}
+  .gt-card .ed input,.gt-card .ed textarea{width:100%; padding:7px; border:1px solid var(--line); border-radius:6px; font-size:15px; font-family:inherit}
+  .gt-card .ed .full{grid-column:1/-1}
+  .gt-group-h{font-weight:700; padding:10px 4px 6px; cursor:pointer; font-size:14px}
+  @media (max-width:700px){ .gt-table-wrap{display:none} .gt-cards{display:block} }
   .empty{text-align:center; color:var(--muted); padding:40px 0}
   textarea.csv{width:100%; height:120px; font-family:ui-monospace,monospace; font-size:12px; border:1px solid var(--line); border-radius:7px; padding:10px}
   /* login */
@@ -243,6 +273,7 @@
         </label>
       </div>
     </div>
+    <div class="glance" id="dashGlance"></div>
     <div class="cards" id="statCards"></div>
     <div class="card">
       <h2>Total attendance by week <span class="pill">sanctuary + kids · stacked by campus</span><button type="button" class="info-btn" onclick="showSource(event,'attend')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
@@ -330,44 +361,47 @@
     <div class="card" id="nextNoSync" style="display:none; border-color:#fde68a; background:#fffbeb">
       <b>Planning Center numbers aren’t connected yet.</b> Connect cards, open follow-ups and baptism registrations will read 0 until the hourly Planning Center sync is turned on. Hands raised and baptized are live from the usher reports.
     </div>
-    <div class="cards" id="nextStats"></div>
-    <div class="card">
-      <h2>Decisions by week <span class="pill">hands raised vs. connect cards</span><button type="button" class="info-btn" onclick="showSource(event,'decisionsChart')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="chartbox"><canvas id="chNextDecisions"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Baptism by week <span class="pill">registrations vs. baptized</span><button type="button" class="info-btn" onclick="showSource(event,'baptismChart')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="chartbox short"><canvas id="chNextBaptism"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Baptism Sundays <span class="pill">registered vs. baptized, per event</span><button type="button" class="info-btn" onclick="showSource(event,'events')" aria-label="How Baptism Sundays are worked out" aria-expanded="false">i</button></h2>
-      <div class="table-scroll"><table class="grid" id="nextEventsTable"></table></div>
-    </div>
-    <div class="card">
-      <h2>By campus <span class="pill">totals for the range</span><button type="button" class="info-btn" onclick="showSource(event,'nextTables')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="table-scroll"><table class="grid" id="nextCampusTable"></table></div>
-      <p class="hint">Tap the <b><i>i</i></b> beside any heading to see where that number comes from and where to verify it.</p>
-    </div>
-    <div class="card">
-      <h2>By week<button type="button" class="info-btn" onclick="showSource(event,'nextTables')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="table-scroll"><table class="grid" id="nextWeekTable"></table></div>
-    </div>
-    <div class="card" id="nextPeopleCard" style="display:none">
-      <h2>People <span class="pill">your campuses</span><button type="button" class="info-btn" onclick="showSource(event,'people')" aria-label="Where the People list comes from" aria-expanded="false">i</button></h2>
-      <div class="row filter-row" style="margin-bottom:10px">
-        <label>Show
-          <select id="nPeopleSel" onchange="renderNextPeople()" style="margin-left:6px">
-            <option value="open">Decisions needing follow-up</option>
-            <option value="decision">All connect-card decisions</option>
-            <option value="baptism_reg">Baptism registrations</option>
-            <option value="">Everything</option>
-          </select>
-        </label>
-        <button class="btn ghost sm" onclick="exportNextPeople()">Export this list (CSV)</button>
+    <div class="card" id="nextPeopleCard">
+      <div class="row" style="align-items:center; margin-bottom:10px">
+        <h2 style="margin:0">Needs follow-up <span class="badge" id="nextOpenBadge">0</span><button type="button" class="info-btn" onclick="showSource(event,'people')" aria-label="Where this list comes from" aria-expanded="false">i</button></h2>
+        <span style="margin-left:auto"></span>
+        <select id="nPeopleSel" onchange="renderNextPeople()" aria-label="Which people to show">
+          <option value="open">Needs follow-up</option>
+          <option value="decision">All connect-card decisions</option>
+          <option value="baptism_reg">Baptism registrations</option>
+          <option value="">Everything</option>
+        </select>
+        <button class="btn ghost sm" onclick="exportNextPeople()">Export CSV</button>
       </div>
       <div class="table-scroll"><table class="grid" id="nextPeopleTable"></table></div>
-      <p class="hint">Names link to the person in Planning Center. Counters see people from their own campuses; admins see everyone.</p>
+      <p class="hint">Oldest first. Red means waiting more than 7 days. Names open the person in Planning Center. You see people from your own campuses.</p>
     </div>
+    <div class="cards" id="nextStats"></div>
+    <div class="card">
+      <div class="row" style="align-items:center">
+        <h2 style="margin:0" id="nextChartTitle">By week</h2>
+        <div class="seg" role="group" aria-label="Chart">
+          <button id="nChartDec" class="on" onclick="setNextChart('dec')">Decisions</button>
+          <button id="nChartBap" onclick="setNextChart('bap')">Baptism</button>
+        </div>
+      </div>
+      <div class="chartbox short" style="margin-top:10px"><canvas id="chNext"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Baptism Sundays<button type="button" class="info-btn" onclick="showSource(event,'events')" aria-label="How Baptism Sundays are worked out" aria-expanded="false">i</button></h2>
+      <div class="table-scroll"><table class="grid" id="nextEventsTable"></table></div>
+    </div>
+    <details class="fold" id="nextFold">
+      <summary>Breakdown tables (by campus, by week)</summary>
+      <div class="card">
+        <h2>By campus<button type="button" class="info-btn" onclick="showSource(event,'nextTables')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <div class="table-scroll"><table class="grid" id="nextCampusTable"></table></div>
+      </div>
+      <div class="card">
+        <h2>By week</h2>
+        <div class="table-scroll"><table class="grid" id="nextWeekTable"></table></div>
+      </div>
+    </details>
   </section>
 
   <!-- ============ GROWTH TRACK ============ -->
@@ -377,8 +411,8 @@
         <label>Campus <select id="gtCampusSel" onchange="renderGT()" style="margin-left:6px"></select></label>
         <label>Show
           <select id="gtShowSel" onchange="renderGTPeople()" style="margin-left:6px">
+            <option value="active" selected>Not finished (missing a step)</option>
             <option value="">Everyone</option>
-            <option value="active">Not finished (missing a step)</option>
             <option value="done">Finished all 3 steps</option>
             <option value="noteam">Finished, no team yet</option>
           </select>
@@ -400,8 +434,9 @@
     </div>
     <div class="card">
       <h2>People</h2>
-      <div class="table-scroll"><table class="gt grid" id="gtTable"></table></div>
-      <p class="hint">Edits save automatically. Tap <b>▸</b> for contact details, birth date, address, kids and notes.</p>
+      <div class="table-scroll gt-table-wrap"><table class="gt grid" id="gtTable"></table></div>
+      <div class="gt-cards" id="gtCards"></div>
+      <p class="hint">Grouped by the Sunday they started; groups older than 60 days start collapsed — tap a group to open or close it. Edits save automatically. Tap <b>▸</b> (or a person on a phone) for contact details, birth date, address, kids and notes.</p>
     </div>
   </section>
 
@@ -836,6 +871,7 @@ function refreshTotals(tbl,week=curWeek,campusList=campuses){
 let charts={};
 async function renderDash(){
   const token=++dashRenderToken;
+  renderGlance();
   const n=+document.getElementById('rangeSel').value;
   const weeks=lastNWeeks(n);
   const {data,error}=await sb.from('entries').select('*').gte('week',weeks[0]);
@@ -1102,6 +1138,13 @@ const NEXT_STATUS={ready:'Needs follow-up',snoozed:'Snoozed',completed:'Complete
   active:'Registered',canceled:'Canceled / cleared',waitlisted:'Waitlisted'};
 const NEXT_TYPE={decision:'Decision for Christ',baptism_interest:'Baptism interest',baptism_reg:'Baptism registration'};
 const NEXT_EVENT_MIN=3;   // a campus needs at least this many usher-reported baptisms in a week to count as a Baptism Sunday
+let nextChartData=null, nextChartMode='dec';
+function setNextChart(m){ nextChartMode=m; document.getElementById('nChartDec').classList.toggle('on',m==='dec'); document.getElementById('nChartBap').classList.toggle('on',m==='bap'); drawNextChart(); }
+function drawNextChart(){
+  if(!nextChartData) return;
+  document.getElementById('nextChartTitle').textContent=nextChartMode==='dec'?'Decisions by week':'Baptism by week';
+  mkChart('chNext','bar',{labels:nextChartData.labels,datasets:nextChartData[nextChartMode]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+}
 async function renderNext(){
   const token=++nextRenderToken;
   const n=+document.getElementById('nRangeSel').value;
@@ -1162,23 +1205,18 @@ async function renderNext(){
   const frows=(fres.data||[]).filter(r=>!cid||r.campus_id===cid);
   const decided=frows.reduce((a,r)=>a+(r.decided||0),0), decReg=frows.reduce((a,r)=>a+(r.registered||0),0);
   document.getElementById('nextStats').innerHTML=`
-    <div class="stat"><div class="lbl">Hands raised (range)${infoBtn('hands')}</div><div class="val">${fmt(hands)}</div><span class="delta flat">from usher reports</span></div>
-    <div class="stat"><div class="lbl">Connect-card decisions${infoBtn('cards')}</div><div class="val">${fmt(cards)}</div><span class="delta flat">${pct(cards,hands)} of hands raised</span></div>
+    <div class="stat"><div class="lbl">Decisions${infoBtn('cards')}</div><div class="val">${fmt(cards)}</div><span class="delta flat">connect cards · ${fmt(hands)} hands raised</span></div>
     <div class="stat"><div class="lbl">Open follow-ups${infoBtn('open')}</div><div class="val">${fmt(open)}</div><span class="delta ${overdue?'down':'flat'}">${overdue?fmt(overdue)+' waiting over 7 days':open?'all within 7 days':'all caught up'}</span></div>
-    <div class="stat"><div class="lbl">Decision → baptism sign-up${infoBtn('funnel')}</div><div class="val">${fmt(decReg)} of ${fmt(decided)}</div><span class="delta flat">${pct(decReg,decided)} have registered</span></div>
-    <div class="stat"><div class="lbl">Baptism registrations${infoBtn('regs')}</div><div class="val">${fmt(regs)}</div><span class="delta flat">Planning Center sign-ups</span></div>
-    <div class="stat"><div class="lbl">Baptized (range)${infoBtn('baptized')}</div><div class="val">${fmt(bapt)}</div><span class="delta flat">from usher reports</span></div>`;
+    <div class="stat"><div class="lbl">Baptized${infoBtn('baptized')}</div><div class="val">${fmt(bapt)}</div><span class="delta flat">${fmt(regs)} signed up · ${fmt(decReg)} of ${fmt(decided)} decisions signed up</span></div>`;
 
   // ---- charts ----
   const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
-  mkChart('chNextDecisions','bar',{labels,datasets:[
-    {label:'Hands raised',data:weeks.map(w=>usher('salvations',w,cid)),backgroundColor:'#4f46e5',borderRadius:3},
-    {label:'Connect-card decisions',data:weeks.map(w=>pco('decision','total',w,cid)),backgroundColor:'#d97706',borderRadius:3}
-  ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
-  mkChart('chNextBaptism','bar',{labels,datasets:[
-    {label:'Baptism registrations',data:weeks.map(w=>pco('baptism_reg','total',w,cid)),backgroundColor:'#0891b2',borderRadius:3},
-    {label:'Baptized',data:weeks.map(w=>usher('baptisms',w,cid)),backgroundColor:'#059669',borderRadius:3}
-  ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
+  nextChartData={labels,
+    dec:[{label:'Hands raised',data:weeks.map(w=>usher('salvations',w,cid)),backgroundColor:'#4f46e5',borderRadius:3},
+         {label:'Connect-card decisions',data:weeks.map(w=>pco('decision','total',w,cid)),backgroundColor:'#d97706',borderRadius:3}],
+    bap:[{label:'Signed up',data:weeks.map(w=>pco('baptism_reg','total',w,cid)),backgroundColor:'#0891b2',borderRadius:3},
+         {label:'Baptized',data:weeks.map(w=>usher('baptisms',w,cid)),backgroundColor:'#059669',borderRadius:3}]};
+  drawNextChart();
 
   // ---- Baptism Sundays: match each registration to the next Baptism Sunday at its campus ----
   const c=v=>`<td style="text-align:center">${v}</td>`;
@@ -1196,7 +1234,7 @@ async function renderNext(){
     });
   });
   const nextBapt=st&&st.meta&&/^\d{4}-\d{2}-\d{2}$/.test(st.meta.next_baptism||'')?st.meta.next_baptism:null;
-  let eh='<thead><tr><th>Baptism Sunday</th><th style="text-align:center">Registered</th><th style="text-align:center">Baptized</th><th style="text-align:center">Baptized ÷ registered</th></tr></thead><tbody>';
+  let eh='<thead><tr><th>Baptism Sunday</th><th style="text-align:center">Signed up</th><th style="text-align:center">Baptized</th><th style="text-align:center">Show-up rate</th></tr></thead><tbody>';
   eh+=`<tr><td class="campus">${nextBapt?fmtWeek(nextBapt):'Next Baptism Sunday'} <span class="pill">upcoming</span></td>${c(fmt(upcoming.reg)+(upcoming.canceled?` <span class="metric-group">${fmt(upcoming.canceled)} canceled</span>`:''))}${c('—')}${c('—')}</tr>`;
   const evShown=Object.keys(events).filter(w=>inRange.has(w)).sort().reverse();
   evShown.forEach(w=>{ eh+=`<tr><td class="campus">${fmtWeek(w)}</td>${c(fmt(events[w].reg))}${c(fmt(events[w].bapt))}${c(pct(events[w].bapt,events[w].reg))}</tr>`; });
@@ -1204,11 +1242,11 @@ async function renderNext(){
   document.getElementById('nextEventsTable').innerHTML=eh+'</tbody>';
 
   // ---- campus + week tables ----
-  const th=(label,key)=>`<th style="text-align:center">${label}${infoBtn(key)}</th>`;
-  const head=th('Hands raised','hands')+th('Connect cards','cards')+th('Cards ÷ hands','ratio')+th('Open follow-ups','open')+th('Baptism registrations','regs')+th('Baptized','baptized');
+  const th=(label)=>`<th style="text-align:center">${label}</th>`;
+  const head=th('Hands raised','hands')+th('Connect cards','cards')+th('Cards per 100 hands','ratio')+th('Open follow-ups','open')+th('Baptism sign-ups','regs')+th('Baptized','baptized');
   const line=(week,campusId)=>{
     const h=usher('salvations',week,campusId), k=pco('decision','total',week,campusId);
-    return c(fmt(h))+c(fmt(k))+c(pct(k,h))+c(fmt(pco('decision','open_count',week,campusId)))
+    return c(fmt(h))+c(fmt(k))+c(h?Math.round(k/h*100):'—')+c(fmt(pco('decision','open_count',week,campusId)))
       +c(fmt(pco('baptism_reg','total',week,campusId)))+c(fmt(usher('baptisms',week,campusId)));
   };
   let ch='<thead><tr><th>Campus</th>'+head+'</tr></thead><tbody>';
@@ -1220,7 +1258,6 @@ async function renderNext(){
   [...weeks].reverse().forEach(w=>{ wh+=`<tr><td class="campus">${fmtWeek(w)}</td>${line(w,cid)}</tr>`; });
   document.getElementById('nextWeekTable').innerHTML=wh+'</tbody>';
 
-  document.getElementById('nextPeopleCard').style.display='';
   nextPeopleRows=(pres.data||[]).filter(r=>r.source!=='baptism_interest'&&(!cid||r.campus_id===cid));
   nextRegIds=new Set((rres.data||[]).map(r=>r.pco_person_id).filter(Boolean));
   renderNextPeople();
@@ -1240,6 +1277,10 @@ function renderNextPeople(){
     mode==='open' ? (r.source==='decision'&&isOpen(r))
     : mode==='open_interest' ? (r.source==='baptism_interest'&&isOpen(r))
     : mode ? r.source===mode : true));
+  if(mode==='open') rows.sort((a,b)=>String(a.occurred_at).localeCompare(String(b.occurred_at)));
+  const openN=nextPeopleRows.filter(r=>r.source==='decision'&&isOpen(r)).length;
+  const lateN=nextPeopleRows.filter(r=>r.source==='decision'&&isOpen(r)&&Date.now()-new Date(r.occurred_at).getTime()>7*86400000).length;
+  const bd=document.getElementById('nextOpenBadge'); bd.textContent=openN; bd.className='badge'+(lateN?' red':''); bd.title=lateN?lateN+' waiting over 7 days':'';
   nextPeopleShown=rows;
   const tbl=document.getElementById('nextPeopleTable');
   if(!rows.length){ tbl.innerHTML='<tbody><tr><td class="empty">Nobody in this view for the selected range.</td></tr></tbody>'; return; }
@@ -1266,6 +1307,33 @@ function exportNextPeople(){
   a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(safe).join(',')).join('\n')],{type:'text/csv'}));
   a.download='destinymetrics-next-steps-'+iso(new Date())+'.csv';
   a.click(); toast('CSV downloaded');
+}
+
+/* ---------------- Dashboard at-a-glance ---------------- */
+let glanceToken=0;
+async function renderGlance(){
+  const my=++glanceToken, el=document.getElementById('dashGlance');
+  const weekAgo=new Date(Date.now()-7*86400000).toISOString();
+  const [ov,gt,st]=await Promise.all([
+    sb.from('next_steps_people').select('id',{count:'exact',head:true}).eq('source','decision').in('status',['ready','snoozed']).lt('occurred_at',weekAgo),
+    sb.from('growth_track_people').select('start_date,team_joined').eq('team_joined',false).gte('start_date',iso(new Date(Date.now()-60*86400000))),
+    sb.from('sync_status').select('job,last_success,last_error')
+  ]);
+  if(my!==glanceToken) return;
+  const overdue=ov.error?null:(ov.count||0);
+  const due=gt.error?null:(gt.data||[]).filter(r=>gtDueMark(r)).length;
+  const s=(st.data||[]).find(x=>x.job==='next_steps');
+  let syncTxt='No sync recorded', syncCls='warn';
+  if(s&&s.last_success){
+    const mins=Math.max(0,Math.round((Date.now()-new Date(s.last_success).getTime())/60000));
+    syncTxt=mins<1?'just now':mins<60?mins+' min ago':mins<2880?Math.round(mins/60)+' hr ago':Math.round(mins/1440)+' days ago';
+    syncCls=(mins>180||s.last_error)?'warn':'ok';
+  }
+  const item=(view,cls,big,txt,sub)=>`<a class="${cls}" onclick="show('${view}')" role="button" tabindex="0"><b>${big}</b>${txt}<small>${sub}</small></a>`;
+  el.innerHTML=
+    item('next',overdue?'warn':'ok',overdue==null?'—':fmt(overdue),' follow-ups waiting over 7 days','Open Next Steps →')
+   +item('gt',due?'warn':'ok',due==null?'—':fmt(due),' Growth Track follow-ups due','15/30/45-day check-ins this week · open Growth Track →')
+   +item('next',syncCls,'⟳',' Planning Center synced '+syncTxt,s&&s.last_error?'Last sync had an error':'Updates hourly');
 }
 
 /* ---------------- Growth Track ---------------- */
@@ -1326,35 +1394,56 @@ function renderGTDue(){
   });
   t.innerHTML=h+'</tbody>';
 }
+let gtCollapsed=new Set(), gtCollapseInit=false;
+function gtSteps(r){ return [r.step1_date,r.step2_date,r.step3_date].map((x,i)=>`<span class="stepb${x?' on':''}" title="${x?'Step '+(i+1)+': '+gtFmt(x):'Step '+(i+1)+' not yet'}">${x?'✓':''}${i+1}</span>`).join(''); }
+function toggleGTGroup(k){ gtCollapsed.has(k)?gtCollapsed.delete(k):gtCollapsed.add(k); renderGTPeople(); }
 function renderGTPeople(){
   const mode=document.getElementById('gtShowSel').value, term=document.getElementById('gtSearch').value.trim().toLowerCase();
   const rows=gtRows.filter(r=>(!term||(r.name||'').toLowerCase().includes(term)) &&
     (mode==='active'?!gtDone(r):mode==='done'?gtDone(r):mode==='noteam'?(gtDone(r)&&!r.team_joined):true));
   gtShown=rows;
-  const t=document.getElementById('gtTable');
-  if(!rows.length){ t.innerHTML='<tbody><tr><td class="empty">Nobody in this view yet.</td></tr></tbody>'; return; }
+  const t=document.getElementById('gtTable'), cardsEl=document.getElementById('gtCards');
+  if(!rows.length){ t.innerHTML='<tbody><tr><td class="empty">Nobody in this view yet.</td></tr></tbody>'; cardsEl.innerHTML='<p class="empty">Nobody in this view yet.</p>'; return; }
+  const groups=[]; const gi={};
+  rows.forEach(r=>{ const k=r.start_date||''; if(!(k in gi)){ gi[k]=groups.length; groups.push({k,rows:[]}); } groups[gi[k]].rows.push(r); });
+  if(!gtCollapseInit){ gtCollapseInit=true; const cut=iso(new Date(Date.now()-60*86400000)); groups.forEach(g=>{ if(g.k&&g.k<cut) gtCollapsed.add(g.k); }); }
+  const gLabel=g=>(g.k?'Started '+fmtWeek(g.k):'No start date')+` · ${g.rows.length} ${g.rows.length===1?'person':'people'} · ${gtRows.filter(r=>(r.start_date||'')===g.k&&gtDone(r)).length} of ${gtRows.filter(r=>(r.start_date||'')===g.k).length} finished`;
   const allC=!document.getElementById('gtCampusSel').value;
-  let h=`<thead><tr><th></th><th>Name</th>${allC?'<th>Campus</th>':''}<th>Start</th><th>Step 1</th><th>Step 2</th><th>Step 3</th><th>Table host</th><th>Team preference</th>${GT_BOOLS.map(b=>`<th>${b[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
   const inp=(r,f,type,ed)=>`<input ${type?`type="${type}"`:''} value="${esc(r[f]||'')}" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)" aria-label="${esc(f)}">`;
-  rows.forEach(r=>{
-    const ed=canEdit(r.campus_id), open=gtOpen.has(r.id);
-    h+=`<tr><td><button class="btn ghost sm" onclick="toggleGT('${r.id}')" aria-label="Details" aria-expanded="${open}">${open?'▾':'▸'}</button></td>`
-      +`<td>${inp(r,'name','',ed)}</td>${allC?`<td class="svc">${esc(gtCampusName(r.campus_id))}</td>`:''}`
-      +`<td>${inp(r,'start_date','date',ed)}</td><td>${inp(r,'step1_date','date',ed)}</td><td>${inp(r,'step2_date','date',ed)}</td><td>${inp(r,'step3_date','date',ed)}</td>`
-      +`<td>${inp(r,'table_host','',ed)}</td><td>${inp(r,'team_preference','',ed)}</td>`
-      +GT_BOOLS.map(([f,l])=>`<td style="text-align:center"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)" aria-label="${l}"></td>`).join('')
-      +`<td>${ed?`<button class="btn danger sm" onclick="deleteGT('${r.id}')" aria-label="Delete">✕</button>`:''}</td></tr>`;
-    if(open){
-      const ta=f=>`<textarea rows="2" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)">${esc(r[f]||'')}</textarea>`;
-      const cols=10+GT_BOOLS.length+(allC?1:0);
-      h+=`<tr class="gt-detail"><td></td><td colspan="${cols-1}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;padding:6px 0">`
-        +`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
-        +`<label>Address ${inp(r,'address','',ed)}</label><label>Children ${ta('children')}</label><label>Gifts ${inp(r,'gifts','',ed)}</label>`
-        +`<label>Notes ${ta('notes')}</label><label>Something they’d like to know ${ta('question')}</label>`
-        +`<div class="hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')}</div></div></td></tr>`;
-    }
+  const ta=(r,f,ed)=>`<textarea rows="2" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)">${esc(r[f]||'')}</textarea>`;
+  const chk=(r,ed)=>GT_BOOLS.map(([f,l])=>`<label style="white-space:nowrap"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)"> ${l}</label>`);
+  const details=(r,ed)=>`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
+    +`<label>Address ${inp(r,'address','',ed)}</label><label>Children ${ta(r,'children',ed)}</label><label>Gifts ${inp(r,'gifts','',ed)}</label>`
+    +`<label>Notes ${ta(r,'notes',ed)}</label><label>Something they’d like to know ${ta(r,'question',ed)}</label>`;
+  // ---- desktop table ----
+  const cols=11+GT_BOOLS.length+(allC?1:0);
+  let h=`<thead><tr><th></th><th>Name</th>${allC?'<th>Campus</th>':''}<th>Steps</th><th>Start</th><th>Step 1</th><th>Step 2</th><th>Step 3</th><th>Table host</th><th>Team preference</th>${GT_BOOLS.map(b=>`<th>${b[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
+  // ---- phone cards ----
+  let cd='';
+  groups.forEach(g=>{
+    const col=gtCollapsed.has(g.k), ka=esc(g.k);
+    h+=`<tr class="gt-group" onclick="toggleGTGroup('${ka}')"><td colspan="${cols}">${col?'▸':'▾'} ${esc(gLabel(g))}</td></tr>`;
+    cd+=`<div class="gt-group-h" onclick="toggleGTGroup('${ka}')">${col?'▸':'▾'} ${esc(gLabel(g))}</div>`;
+    if(col) return;
+    g.rows.forEach(r=>{
+      const ed=canEdit(r.campus_id), open=gtOpen.has(r.id), due=gtDueMark(r);
+      h+=`<tr><td><button class="btn ghost sm" onclick="toggleGT('${r.id}')" aria-label="Details" aria-expanded="${open}">${open?'▾':'▸'}</button></td>`
+        +`<td>${inp(r,'name','',ed)}</td>${allC?`<td class="svc">${esc(gtCampusName(r.campus_id))}</td>`:''}<td style="white-space:nowrap">${gtSteps(r)}</td>`
+        +`<td>${inp(r,'start_date','date',ed)}</td><td>${inp(r,'step1_date','date',ed)}</td><td>${inp(r,'step2_date','date',ed)}</td><td>${inp(r,'step3_date','date',ed)}</td>`
+        +`<td>${inp(r,'table_host','',ed)}</td><td>${inp(r,'team_preference','',ed)}</td>`
+        +GT_BOOLS.map(([f,l])=>`<td style="text-align:center"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)" aria-label="${l}"></td>`).join('')
+        +`<td>${ed?`<button class="btn danger sm" onclick="deleteGT('${r.id}')" aria-label="Delete">✕</button>`:''}</td></tr>`;
+      if(open) h+=`<tr class="gt-detail"><td></td><td colspan="${cols-1}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;padding:6px 0">${details(r,ed)}<div class="hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')}</div></div></td></tr>`;
+      cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')"><div><div class="nm">${esc(r.name)}${due?` <span class="badge red">${due}-day</span>`:''}</div>`
+        +`<div class="sub">${esc([r.table_host&&('Host: '+r.table_host),allC&&gtCampusName(r.campus_id),r.team_joined&&'On a team'].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
+      if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
+        +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
+        +`<div class="full" style="display:flex;flex-wrap:wrap;gap:12px">${chk(r,ed).join('')}</div>${details(r,ed)}`
+        +`<div class="full hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')} ${ed?`<button class="btn danger sm" style="float:right" onclick="deleteGT('${r.id}')">Delete</button>`:''}</div></div>`;
+      cd+='</div>';
+    });
   });
-  t.innerHTML=h+'</tbody>';
+  t.innerHTML=h+'</tbody>'; cardsEl.innerHTML=cd;
 }
 function toggleGT(id){ gtOpen.has(id)?gtOpen.delete(id):gtOpen.add(id); renderGTPeople(); }
 async function saveGT(id,field,value){
