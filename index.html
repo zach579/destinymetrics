@@ -121,16 +121,16 @@
   .stepb{display:inline-block; padding:2px 7px; margin-right:3px; border-radius:6px; font-size:12px; font-weight:600; background:#f1f5f9; color:var(--muted)}
   .stepb.on{background:#dcfce7; color:#15803d}
   tr.gt-group td{background:var(--accent-soft); font-weight:700; cursor:pointer; padding:8px 6px; font-size:13.5px}
-  .gt-cards{display:none}
+  .gt-card .top{cursor:pointer}
   .gt-card{border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:var(--card)}
   .gt-card .top{display:flex; justify-content:space-between; align-items:center; gap:8px}
   .gt-card .nm{font-weight:600}
   .gt-card .sub{font-size:12.5px; color:var(--muted); margin-top:3px}
   .gt-card .ed{display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:10px; font-size:12.5px}
+  @media (min-width:701px){ .gt-card .ed{grid-template-columns:repeat(4,1fr)} .gt-card .ed .full{grid-column:span 2} }
   .gt-card .ed input,.gt-card .ed textarea{width:100%; padding:7px; border:1px solid var(--line); border-radius:6px; font-size:15px; font-family:inherit}
   .gt-card .ed .full{grid-column:1/-1}
   .gt-group-h{font-weight:700; padding:10px 4px 6px; cursor:pointer; font-size:14px}
-  @media (max-width:700px){ .gt-table-wrap{display:none} .gt-cards{display:block} }
   .empty{text-align:center; color:var(--muted); padding:40px 0}
   textarea.csv{width:100%; height:120px; font-family:ui-monospace,monospace; font-size:12px; border:1px solid var(--line); border-radius:7px; padding:10px}
   /* login */
@@ -408,16 +408,24 @@
   <section id="view-gt" style="display:none">
     <div class="card">
       <div class="row filter-row" style="align-items:center">
-        <label>Campus <select id="gtCampusSel" onchange="renderGT()" style="margin-left:6px"></select></label>
+        <label>Campus <select id="gtCampusSel" onchange="gtPage=1;renderGT()" style="margin-left:6px"></select></label>
         <label>Show
-          <select id="gtShowSel" onchange="renderGTPeople()" style="margin-left:6px">
+          <select id="gtShowSel" onchange="gtPage=1;renderGTPeople()" style="margin-left:6px">
             <option value="active" selected>Not finished (missing a step)</option>
             <option value="">Everyone</option>
             <option value="done">Finished all 3 steps</option>
             <option value="noteam">Finished, no team yet</option>
           </select>
         </label>
-        <input id="gtSearch" placeholder="Search name…" oninput="renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
+        <label>Sort
+          <select id="gtSortSel" onchange="gtPage=1;renderGTPeople()" style="margin-left:6px">
+            <option value="az">Name A–Z</option>
+            <option value="za">Name Z–A</option>
+            <option value="new">Start date (newest)</option>
+            <option value="old">Start date (oldest)</option>
+          </select>
+        </label>
+        <input id="gtSearch" placeholder="Search name, phone, email…" oninput="gtPage=1;renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
         <span style="margin-left:auto"></span>
         <button class="btn sm" id="gtAddBtn" onclick="addGTPerson()">+ Add person</button>
         <button class="btn ghost sm" onclick="exportGT()">Export CSV</button>
@@ -434,9 +442,9 @@
     </div>
     <div class="card">
       <h2>People</h2>
-      <div class="table-scroll gt-table-wrap"><table class="gt grid" id="gtTable"></table></div>
       <div class="gt-cards" id="gtCards"></div>
-      <p class="hint">Grouped by the Sunday they started; groups older than 60 days start collapsed — tap a group to open or close it. Edits save automatically. Tap <b>▸</b> (or a person on a phone) for contact details, birth date, address, kids and notes.</p>
+      <div class="row" id="gtPager" style="justify-content:center; align-items:center; gap:12px; margin-top:10px"></div>
+      <p class="hint">Tap a name to open their steps, follow-up checkboxes and details. Edits save automatically.</p>
     </div>
   </section>
 
@@ -1394,56 +1402,45 @@ function renderGTDue(){
   });
   t.innerHTML=h+'</tbody>';
 }
-let gtCollapsed=new Set(), gtCollapseInit=false;
+const GT_PAGE_SIZE=25; let gtPage=1;
 function gtSteps(r){ return [r.step1_date,r.step2_date,r.step3_date].map((x,i)=>`<span class="stepb${x?' on':''}" title="${x?'Step '+(i+1)+': '+gtFmt(x):'Step '+(i+1)+' not yet'}">${x?'✓':''}${i+1}</span>`).join(''); }
-function toggleGTGroup(k){ gtCollapsed.has(k)?gtCollapsed.delete(k):gtCollapsed.add(k); renderGTPeople(); }
+function gtGoPage(n){ gtPage=n; renderGTPeople(); document.getElementById('gtCards').scrollIntoView({block:'start',behavior:'smooth'}); }
 function renderGTPeople(){
-  const mode=document.getElementById('gtShowSel').value, term=document.getElementById('gtSearch').value.trim().toLowerCase();
-  const rows=gtRows.filter(r=>(!term||(r.name||'').toLowerCase().includes(term)) &&
+  const mode=document.getElementById('gtShowSel').value, sort=document.getElementById('gtSortSel').value;
+  const term=document.getElementById('gtSearch').value.trim().toLowerCase(), digits=term.replace(/\D/g,'');
+  const rows=gtRows.filter(r=>(!term||(r.name||'').toLowerCase().includes(term)||(r.email||'').toLowerCase().includes(term)
+      ||(digits.length>=3&&(r.phone||'').replace(/\D/g,'').includes(digits))) &&
     (mode==='active'?!gtDone(r):mode==='done'?gtDone(r):mode==='noteam'?(gtDone(r)&&!r.team_joined):true));
+  const byName=(a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'});
+  const sd=r=>r.start_date||'';
+  rows.sort(sort==='za'?(a,b)=>byName(b,a):sort==='new'?(a,b)=>sd(b).localeCompare(sd(a))||byName(a,b):sort==='old'?(a,b)=>(sd(a)||'9').localeCompare(sd(b)||'9')||byName(a,b):byName);
   gtShown=rows;
-  const t=document.getElementById('gtTable'), cardsEl=document.getElementById('gtCards');
-  if(!rows.length){ t.innerHTML='<tbody><tr><td class="empty">Nobody in this view yet.</td></tr></tbody>'; cardsEl.innerHTML='<p class="empty">Nobody in this view yet.</p>'; return; }
-  const groups=[]; const gi={};
-  rows.forEach(r=>{ const k=r.start_date||''; if(!(k in gi)){ gi[k]=groups.length; groups.push({k,rows:[]}); } groups[gi[k]].rows.push(r); });
-  if(!gtCollapseInit){ gtCollapseInit=true; const cut=iso(new Date(Date.now()-60*86400000)); groups.forEach(g=>{ if(g.k&&g.k<cut) gtCollapsed.add(g.k); }); }
-  const gLabel=g=>(g.k?'Started '+fmtWeek(g.k):'No start date')+` · ${g.rows.length} ${g.rows.length===1?'person':'people'} · ${gtRows.filter(r=>(r.start_date||'')===g.k&&gtDone(r)).length} of ${gtRows.filter(r=>(r.start_date||'')===g.k).length} finished`;
+  const cardsEl=document.getElementById('gtCards'), pager=document.getElementById('gtPager');
+  if(!rows.length){ cardsEl.innerHTML='<p class="empty">Nobody in this view yet.</p>'; pager.innerHTML=''; return; }
+  const pages=Math.max(1,Math.ceil(rows.length/GT_PAGE_SIZE)); gtPage=Math.min(Math.max(1,gtPage),pages);
+  const page=rows.slice((gtPage-1)*GT_PAGE_SIZE,gtPage*GT_PAGE_SIZE);
   const allC=!document.getElementById('gtCampusSel').value;
   const inp=(r,f,type,ed)=>`<input ${type?`type="${type}"`:''} value="${esc(r[f]||'')}" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)" aria-label="${esc(f)}">`;
   const ta=(r,f,ed)=>`<textarea rows="2" ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.value)">${esc(r[f]||'')}</textarea>`;
-  const chk=(r,ed)=>GT_BOOLS.map(([f,l])=>`<label style="white-space:nowrap"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)"> ${l}</label>`);
-  const details=(r,ed)=>`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
-    +`<label>Address ${inp(r,'address','',ed)}</label><label>Children ${ta(r,'children',ed)}</label><label>Gifts ${inp(r,'gifts','',ed)}</label>`
-    +`<label>Notes ${ta(r,'notes',ed)}</label><label>Something they’d like to know ${ta(r,'question',ed)}</label>`;
-  // ---- desktop table ----
-  const cols=9+GT_BOOLS.length;
-  let h=`<thead><tr><th></th><th>Name</th><th>Steps</th><th>Step 1</th><th>Step 2</th><th>Step 3</th><th>Table host</th><th>Team preference</th>${GT_BOOLS.map(b=>`<th>${b[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
-  // ---- phone cards ----
+  const chk=(r,ed)=>GT_BOOLS.map(([f,l])=>`<label style="white-space:nowrap"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)"> ${l}</label>`).join('');
   let cd='';
-  groups.forEach(g=>{
-    const col=gtCollapsed.has(g.k), ka=esc(g.k);
-    h+=`<tr class="gt-group" onclick="toggleGTGroup('${ka}')"><td colspan="${cols}">${col?'▸':'▾'} ${esc(gLabel(g))}</td></tr>`;
-    cd+=`<div class="gt-group-h" onclick="toggleGTGroup('${ka}')">${col?'▸':'▾'} ${esc(gLabel(g))}</div>`;
-    if(col) return;
-    g.rows.forEach(r=>{
-      const ed=canEdit(r.campus_id), open=gtOpen.has(r.id), due=gtDueMark(r);
-      h+=`<tr><td><button class="btn ghost sm" onclick="toggleGT('${r.id}')" aria-label="Details" aria-expanded="${open}">${open?'▾':'▸'}</button></td>`
-        +`<td>${inp(r,'name','',ed)}</td><td style="white-space:nowrap">${gtSteps(r)}</td>`
-        +`<td>${inp(r,'step1_date','date',ed)}</td><td>${inp(r,'step2_date','date',ed)}</td><td>${inp(r,'step3_date','date',ed)}</td>`
-        +`<td>${inp(r,'table_host','',ed)}</td><td>${inp(r,'team_preference','',ed)}</td>`
-        +GT_BOOLS.map(([f,l])=>`<td style="text-align:center"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)" aria-label="${l}"></td>`).join('')
-        +`<td>${ed?`<button class="btn danger sm" onclick="deleteGT('${r.id}')" aria-label="Delete">✕</button>`:''}</td></tr>`;
-      if(open) h+=`<tr class="gt-detail"><td></td><td colspan="${cols-1}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;padding:6px 0"><label>Start Sunday ${inp(r,'start_date','date',ed)}</label>${details(r,ed)}<div class="hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')}</div></div></td></tr>`;
-      cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')"><div><div class="nm">${esc(r.name)}${due?` <span class="badge red">${due}-day</span>`:''}</div>`
-        +`<div class="sub">${esc([r.table_host&&('Host: '+r.table_host),allC&&gtCampusName(r.campus_id),r.team_joined&&'On a team'].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
-      if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
-        +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
-        +`<div class="full" style="display:flex;flex-wrap:wrap;gap:12px">${chk(r,ed).join('')}</div>${details(r,ed)}`
-        +`<div class="full hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')} ${ed?`<button class="btn danger sm" style="float:right" onclick="deleteGT('${r.id}')">Delete</button>`:''}</div></div>`;
-      cd+='</div>';
-    });
+  page.forEach(r=>{
+    const ed=canEdit(r.campus_id), open=gtOpen.has(r.id), due=gtDueMark(r);
+    cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}${due?` <span class="badge red">${due}-day</span>`:''}</div>`
+      +`<div class="sub">${esc([r.start_date&&('Started '+gtFmt(r.start_date)),allC&&gtCampusName(r.campus_id),r.team_joined&&'On a team'].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
+    if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
+      +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
+      +`<div class="full" style="display:flex;flex-wrap:wrap;gap:14px;padding:4px 0">${chk(r,ed)}</div>`
+      +`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
+      +`<label>Gifts ${inp(r,'gifts','',ed)}</label><label class="full">Address ${inp(r,'address','',ed)}</label><label>Children ${ta(r,'children',ed)}</label>`
+      +`<label>Notes ${ta(r,'notes',ed)}</label><label class="full">Something they’d like to know ${ta(r,'question',ed)}</label>`
+      +`<div class="full hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')} ${ed?`<button class="btn danger sm" style="float:right" onclick="deleteGT('${r.id}')">Delete</button>`:''}</div></div>`;
+    cd+='</div>';
   });
-  t.innerHTML=h+'</tbody>'; cardsEl.innerHTML=cd;
+  cardsEl.innerHTML=cd;
+  pager.innerHTML=`<button class="btn ghost sm" ${gtPage<=1?'disabled':''} onclick="gtGoPage(${gtPage-1})">← Prev</button>`
+    +`<span class="hint" style="margin:0">Page ${gtPage} of ${pages} · ${rows.length} ${rows.length===1?'person':'people'}</span>`
+    +`<button class="btn ghost sm" ${gtPage>=pages?'disabled':''} onclick="gtGoPage(${gtPage+1})">Next →</button>`;
 }
 function toggleGT(id){ gtOpen.has(id)?gtOpen.delete(id):gtOpen.add(id); renderGTPeople(); }
 async function saveGT(id,field,value){
