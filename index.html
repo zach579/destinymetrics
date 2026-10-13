@@ -52,7 +52,7 @@
   .metric-group{font-size:10px; color:var(--muted); display:block; font-weight:400}
   .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:18px}
   .stat{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px}
-  .stat .lbl{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px}
+  .stat .lbl{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px}
   .stat .val{font-size:26px; font-weight:700; margin:4px 0 2px; letter-spacing:-.5px}
   .stat .delta{font-size:12.5px; font-weight:600}
   .delta.up{color:var(--green)} .delta.down{color:var(--red)} .delta.flat{color:var(--muted)}
@@ -130,6 +130,8 @@
   .gt-card .ed input,.gt-card .ed textarea{width:100%; padding:7px; border:1px solid var(--line); border-radius:6px; font-size:15px; font-family:inherit}
   .gt-card .ed .full{grid-column:1/-1}
   .gt-group-h{font-weight:700; padding:10px 4px 6px; cursor:pointer; font-size:14px}
+  table.grid#volTeamTable,table.grid#volInactiveTable{min-width:0!important}
+  #volTeamTable td,#volTeamTable th,#volInactiveTable td,#volInactiveTable th{position:static!important; box-shadow:none!important}
   .empty{text-align:center; color:var(--muted); padding:40px 0}
   textarea.csv{width:100%; height:120px; font-family:ui-monospace,monospace; font-size:12px; border:1px solid var(--line); border-radius:7px; padding:10px}
   /* login */
@@ -275,7 +277,7 @@
     <div class="glance" id="dashGlance"></div>
     <div class="cards" id="statCards"></div>
     <div class="card">
-      <h2>Total attendance by week <span class="pill">sanctuary + kids · stacked by campus</span><button type="button" class="info-btn" onclick="showSource(event,'attend')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+      <h2>Attendance by week <span class="pill">sanctuary + kids · by campus</span><button type="button" class="info-btn" onclick="showSource(event,'attend')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
       <div class="chartbox"><canvas id="chAttend"></canvas></div>
     </div>
     <div class="two">
@@ -284,26 +286,32 @@
         <div class="chartbox short"><canvas id="chDecisions"></canvas></div>
       </div>
       <div class="card">
-        <h2>Campus comparison <span class="pill">avg weekly · sanctuary + kids</span><button type="button" class="info-btn" onclick="showSource(event,'campusAvg')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <h2>Campus comparison <span class="pill">weekly average</span><button type="button" class="info-btn" onclick="showSource(event,'campusAvg')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
         <div class="chartbox short"><canvas id="chCampus"></canvas></div>
       </div>
     </div>
-    <div class="card">
-      <h2>Service time breakdown <span class="pill">avg per service · sanctuary + kids</span><button type="button" class="info-btn" onclick="showSource(event,'serviceAvg')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="chartbox short"><canvas id="chService"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Sunday Service Summary<button type="button" class="info-btn" onclick="showSource(event,'summary')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div style="overflow-x:auto"><table class="grid" id="summaryTable"></table></div>
-    </div>
-    <div class="card">
-      <h2>Wednesday attendance by week <span class="pill">all midweek data, stacked by campus</span><button type="button" class="info-btn" onclick="showSource(event,'wed')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="chartbox"><canvas id="chWed"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Wednesday Service Summary <span class="pill">midweek check-ins</span><button type="button" class="info-btn" onclick="showSource(event,'wed')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div style="overflow-x:auto"><table class="grid" id="wedSummaryTable"></table></div>
-    </div>
+    <details class="fold">
+      <summary>More detail (service times, weekly table)</summary>
+      <div class="card">
+        <h2>Service time breakdown <span class="pill">avg per service · sanctuary + kids</span><button type="button" class="info-btn" onclick="showSource(event,'serviceAvg')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <div class="chartbox short"><canvas id="chService"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Sunday service summary<button type="button" class="info-btn" onclick="showSource(event,'summary')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <div style="overflow-x:auto"><table class="grid" id="summaryTable"></table></div>
+      </div>
+    </details>
+    <details class="fold">
+      <summary>Wednesday nights</summary>
+      <div class="card">
+        <h2>Wednesday attendance by week <span class="pill">stacked by campus</span><button type="button" class="info-btn" onclick="showSource(event,'wed')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
+        <div class="chartbox short"><canvas id="chWed"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Wednesday summary</h2>
+        <div style="overflow-x:auto"><table class="grid" id="wedSummaryTable"></table></div>
+      </div>
+    </details>
   </section>
 
   <!-- ============ VOLUNTEERS ============ -->
@@ -327,15 +335,20 @@
         <label class="check-label" style="white-space:nowrap"><input type="checkbox" id="vRawNames" onchange="renderVols()"> Raw team names</label>
       </div>
     </div>
-    <div class="cards" id="volStats"></div>
+    <div class="cards" id="volStats" style="margin-bottom:6px"></div>
+    <p class="hint" style="margin:0 0 18px">“Scheduled” is team spots from Planning Center (one person on two teams counts twice). “Usher volunteer count” is the headcount ushers enter on the Usher Form.</p>
     <div class="card">
-      <h2 style="margin-top:16px">Volunteers by week <span class="pill">stacked by team, top 10</span><button type="button" class="info-btn" onclick="showSource(event,'teams')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
-      <div class="chartbox"><canvas id="chVolWeeks"></canvas></div>
+      <div class="row" style="align-items:center">
+        <h2 style="margin:0" id="volChartTitle">Scheduled by week</h2><button type="button" class="info-btn" onclick="showSource(event,'teams')" aria-label="Where this comes from" aria-expanded="false">i</button>
+        <label style="margin-left:auto">Team <select id="vTeamSel" onchange="drawVolChart()" style="margin-left:6px"></select></label>
+      </div>
+      <div class="chartbox short" style="margin-top:10px"><canvas id="chVolWeeks"></canvas></div>
     </div>
     <div class="card">
       <h2 style="margin-top:20px">Team breakdown <span class="pill">sorted by average per week</span><button type="button" class="info-btn" onclick="showSource(event,'teams')" aria-label="Where this comes from" aria-expanded="false">i</button></h2>
       <div class="table-scroll"><table class="grid" id="volTeamTable"></table></div>
-      <p class="hint">Fed automatically from Planning Center Services scheduling. Numbers are scheduled or confirmed team members per week.</p>
+      <details id="volInactiveWrap" style="margin-top:12px"><summary class="hint" style="cursor:pointer; margin:0" id="volInactiveSum"></summary><div class="table-scroll"><table class="grid" id="volInactiveTable"></table></div></details>
+      <p class="hint">From Planning Center Services scheduling: scheduled or confirmed team members per week. Red marks a team at least 20% below its average (teams averaging 5+). Inactive teams (nobody scheduled in the last 4 weeks) and service-time entries are tucked into the list below; check “Raw team names” to see everything as-is.</p>
     </div>
   </section>
 
@@ -358,7 +371,7 @@
       </div>
     </div>
     <div class="card" id="nextNoSync" style="display:none; border-color:#fde68a; background:#fffbeb">
-      <b>Planning Center numbers aren’t connected yet.</b> Connect cards, open follow-ups and baptism registrations will read 0 until the hourly Planning Center sync is turned on. Hands raised and baptized are live from the usher reports.
+      <b>Planning Center numbers aren’t connected yet.</b> Connect cards, open follow-ups and baptism registrations will read 0 until the hourly Planning Center sync is turned on. Salvations and baptized are live from the usher reports.
     </div>
     <div class="card" id="nextPeopleCard">
       <div class="row" style="align-items:center; margin-bottom:10px">
@@ -907,12 +920,12 @@ async function renderDash(){
   const volAvg=volVals.length?Math.round(volVals.reduce((a,b)=>a+b,0)/volVals.length):0;
   const d=lastW?Math.round((thisW-lastW)/lastW*100):null;
   const deltaHtml=d==null?'<span class="delta flat">—</span>'
-    :`<span class="delta ${d>0?'up':d<0?'down':'flat'}">${d>0?'▲':d<0?'▼':''} ${Math.abs(d)}% vs last wk</span>`;
+    :`<span class="delta ${d>0?'up':d<0?'down':'flat'}">this week · ${d>0?'▲':d<0?'▼':''} ${Math.abs(d)}% vs last</span>`;
   document.getElementById('statCards').innerHTML=`
-    <div class="stat"><div class="lbl">This week attendance · sanctuary + kids${infoBtn('attend')}</div><div class="val">${fmt(thisW)}</div>${deltaHtml}</div>
-    <div class="stat"><div class="lbl">Avg weekly (range) · sanctuary + kids${infoBtn('attendAvg')}</div><div class="val">${fmt(avg)}</div><span class="delta flat">${nonzero.length} wks with data</span></div>
-    <div class="stat"><div class="lbl">Salvations (range)${infoBtn('decisions')}</div><div class="val">${fmt(salv)}</div><span class="delta flat">${fmt(bapt)} baptisms</span></div>
-    <div class="stat"><div class="lbl">Volunteers (latest)${infoBtn('volunteers')}</div><div class="val">${fmt(vol)}</div><span class="delta flat">${fmt(volAvg)} avg/wk</span></div>`;
+    <div class="stat"><div class="lbl">Attendance${infoBtn('attend')}</div><div class="val">${fmt(thisW)}</div>${deltaHtml}</div>
+    <div class="stat"><div class="lbl">Weekly avg${infoBtn('attendAvg')}</div><div class="val">${fmt(avg)}</div><span class="delta flat">sanctuary + kids · ${nonzero.length} wks</span></div>
+    <div class="stat"><div class="lbl">Salvations${infoBtn('decisions')}</div><div class="val">${fmt(salv)}</div><span class="delta flat">${fmt(bapt)} baptisms</span></div>
+    <div class="stat"><div class="lbl">Volunteers${infoBtn('volunteers')}</div><div class="val">${fmt(vol)}</div><span class="delta flat">usher headcount · ${fmt(volAvg)} avg</span></div>`;
 
   const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
   const palette=['#4f46e5','#059669','#d97706','#dc2626','#0891b2','#7c3aed','#be185d','#4d7c0f'];
@@ -963,6 +976,9 @@ async function renderDash(){
   // wedSvcIds is defined above; Wednesday services are excluded from the weekend figures but shown here.
   const wedCampuses=(cid?campuses.filter(c=>c.id===cid):campuses)
     .filter(c=>c.services.some(s=>wedSvcIds.has(s.id)));
+  const todayISO=iso(new Date());
+  const wedDate=w=>{ const d=fromISO(w); d.setDate(d.getDate()+3); return iso(d); };
+  const wedPast=weeks.filter(w=>wedDate(w)<=todayISO);   // skip Wednesdays that haven't happened yet
   const wedTable=document.getElementById('wedSummaryTable');
   if(wedTable){
     if(!wedCampuses.length){
@@ -977,7 +993,7 @@ async function renderDash(){
       let wh='<thead><tr><th>Week</th>'
         +wedCampuses.map(c=>`<th style="text-align:center">${esc(c.name)}</th>`).join('')
         +(showTotal?'<th style="text-align:center">Total</th>':'')+'</tr></thead><tbody>';
-      [...weeks].reverse().forEach(w=>{
+      wedPast.slice().reverse().forEach(w=>{
         const vals=wedCampuses.map(c=>({has:wedHasRow(w,c.id),v:wedAt(w,c.id)}));
         const tot=vals.reduce((a,b)=>a+b.v,0);
         wh+=`<tr><td class="campus">${fmtWed(w)}</td>`
@@ -988,28 +1004,17 @@ async function renderDash(){
     }
   }
 
-  // ---- Wednesday attendance chart (ALL midweek data, ignores the Range filter) ----
+  // ---- Wednesday attendance chart (respects the Range filter; past Wednesdays only) ----
   const chWedEl=document.getElementById('chWed');
   if(chWedEl && wedSvcIds.size){
-    const {data:wedData,error:wedErr}=await sb.from('entries').select('*').in('service_id',[...wedSvcIds]);
-    if(token===dashRenderToken){
-      if(wedErr){ toast(wedErr.message,true); }
-      else{
-        const wrows=(wedData||[]).filter(r=>svcById[r.service_id]);
-        const wedWeeks=[...new Set(wrows.map(r=>r.week))].sort();
-        const wedChartCampuses=(cid?campuses.filter(c=>c.id===cid):campuses)
-          .filter(c=>c.services.some(s=>wedSvcIds.has(s.id)));
-        const wedLabels=wedWeeks.map(w=>{ const d=fromISO(w); d.setDate(d.getDate()+3);
-          return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); });
-        const wedAtC=(week,campusId)=>wrows
-          .filter(r=>r.week===week && svcById[r.service_id].campus.id===campusId)
-          .reduce((a,r)=>a+sum(r,attendKeys),0);
-        mkChart('chWed','bar',{labels:wedLabels,datasets:wedChartCampuses.map((c,i)=>({
-          label:c.name, data:wedWeeks.map(w=>wedAtC(w,c.id)),
-          backgroundColor:palette[i%palette.length], stack:'a', borderRadius:3
-        }))},{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
-      }
-    }
+    const wedLabels=wedPast.map(w=>fromISO(wedDate(w)).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
+    const wedAtC=(week,campusId)=>rows
+      .filter(r=>r.week===week && wedSvcIds.has(r.service_id) && svcById[r.service_id].campus.id===campusId)
+      .reduce((a,r)=>a+sum(r,attendKeys),0);
+    mkChart('chWed','bar',{labels:wedLabels,datasets:wedCampuses.map((c,i)=>({
+      label:c.name, data:wedPast.map(w=>wedAtC(w,c.id)),
+      backgroundColor:palette[campuses.indexOf(c)%palette.length], stack:'a', borderRadius:3
+    }))},{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
   }else if(chWedEl && charts.chWed){ charts.chWed.destroy(); delete charts.chWed; }
 }
 function mkChart(id,type,data,extra){
@@ -1075,6 +1080,7 @@ async function renderVols(){
     document.getElementById('volStats').innerHTML='';
     document.getElementById('volTeamTable').innerHTML='<tbody><tr><td class="empty">No volunteer data yet — it syncs from Planning Center Services automatically.</td></tr></tbody>';
     if(charts.chVolWeeks){ charts.chVolWeeks.destroy(); delete charts.chVolWeeks; }
+    volChart=null; document.getElementById('volInactiveWrap').style.display='none';
     return;
   }
   const teams={};
@@ -1091,46 +1097,63 @@ async function renderVols(){
   };
 
   const weekTotals=weeks.map(w=>teamNames.reduce((a,t)=>a+(teams[t][w]||0),0));
-  const latest=weekTotals[weekTotals.length-1]||0;
+  const lastWeek=weeks[weeks.length-1];
+  const latest=weekTotals[weekTotals.length-1]||0, prev=weekTotals[weekTotals.length-2]||0;
   const nonzero=weekTotals.filter(x=>x>0);
   const avgTotal=nonzero.length?Math.round(nonzero.reduce((a,b)=>a+b,0)/nonzero.length):0;
   const entryRows=(edata||[]).filter(x=>svcById[x.service_id]
     &&(!cid||svcById[x.service_id].campus.id===cid)&&(!sid||x.service_id===sid));
-  const uniqueLatest=entryRows.filter(x=>x.week===weeks[weeks.length-1]).reduce((a,x)=>a+(x.volunteers||0),0);
+  const usherLatest=entryRows.filter(x=>x.week===lastWeek).reduce((a,x)=>a+(x.volunteers||0),0);
+  const recent=weeks.slice(-4);
+  const isPseudo=t=>!useRaw&&(/^(dk\s+)?\d{1,2}(:\d{2})?\s*(am|pm)\s*service$/i.test(t)||/^other$/i.test(t));
+  const isActive=t=>recent.some(w=>(teams[t][w]||0)>0);
+  const mainTeams=useRaw?teamNames:teamNames.filter(t=>!isPseudo(t)&&isActive(t));
+  const hiddenTeams=useRaw?[]:teamNames.filter(t=>!mainTeams.includes(t));
+  const servingNow=mainTeams.filter(t=>(teams[t][lastWeek]||0)>0).length;
+  const wd=prev?Math.round((latest-prev)/prev*100):null;
   document.getElementById('volStats').innerHTML=`
-    <div class="stat"><div class="lbl">This week serving${infoBtn('teams')}</div><div class="val">${fmt(latest)}</div><span class="delta flat">scheduled team spots</span></div>
-    <div class="stat"><div class="lbl">Unique people${infoBtn('volunteers')}</div><div class="val">${fmt(uniqueLatest)}</div><span class="delta flat">latest usher count</span></div>
-    <div class="stat"><div class="lbl">Avg weekly (range)${infoBtn('teamsAvg')}</div><div class="val">${fmt(avgTotal)}</div><span class="delta flat">${nonzero.length} wks with data</span></div>
-    <div class="stat"><div class="lbl">Teams${infoBtn('teamCount')}</div><div class="val">${fmt(teamNames.length)}</div><span class="delta flat">active in range</span></div>`;
+    <div class="stat"><div class="lbl">Scheduled${infoBtn('teams')}</div><div class="val">${fmt(latest)}</div><span class="delta ${wd>0?'up':wd<0?'down':'flat'}">this week${wd==null?'':` · ${wd>0?'▲':wd<0?'▼':''} ${Math.abs(wd)}% vs last`}</span></div>
+    <div class="stat"><div class="lbl">Usher volunteer count${infoBtn('volunteers')}</div><div class="val">${fmt(usherLatest)}</div><span class="delta flat">headcount this week</span></div>
+    <div class="stat"><div class="lbl">Weekly avg${infoBtn('teamsAvg')}</div><div class="val">${fmt(avgTotal)}</div><span class="delta flat">scheduled · ${nonzero.length} wks</span></div>
+    <div class="stat"><div class="lbl">Teams serving${infoBtn('teamCount')}</div><div class="val">${fmt(servingNow)}</div><span class="delta flat">this week</span></div>`;
 
-  const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
-  const palette=['#4f46e5','#059669','#d97706','#dc2626','#0891b2','#7c3aed','#be185d','#4d7c0f','#334155','#9333ea'];
-  const top=teamNames.slice(0,10);
-  mkChart('chVolWeeks','bar',{labels,datasets:top.map((team,i)=>({label:team,
-    data:weeks.map(w=>teams[team][w]||0),backgroundColor:palette[i%palette.length],stack:'a',borderRadius:3}))},
-    {scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
+  volChart={labels:weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'})),weeks,teams,totals:weekTotals};
+  const tsel=document.getElementById('vTeamSel'), tcur=tsel.value;
+  tsel.innerHTML='<option value="">All teams (total)</option>'+teamNames.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  tsel.value=teamNames.includes(tcur)?tcur:'';
+  drawVolChart();
 
   const trend=(last,avg)=>{
     if(!avg) return '<span class="delta flat">—</span>';
     const delta=Math.round((last-avg)/avg*100);
     if(!delta) return '<span class="delta flat">flat</span>';
-    return '<span class="delta '+(delta>0?'up':'down')+'">'+(delta>0?'▲':'▼')+' '+Math.abs(delta)+'%</span>';
+    const cls=delta<=-20&&avg>=5?'down':delta>0?'up':'flat';
+    return '<span class="delta '+cls+'">'+(delta>0?'▲':'▼')+' '+Math.abs(delta)+'%</span>';
   };
-  const lastWeek=weeks[weeks.length-1];
-  let html='<thead><tr><th>Team</th><th style="text-align:center">Avg / week</th><th style="text-align:center">Latest week</th><th style="text-align:center">Weeks active</th><th style="text-align:center">Total</th><th style="text-align:center">Latest vs avg</th></tr></thead><tbody>';
-  teamNames.forEach(team=>{
-    const avg=avgOf(team);
-    const values=weeks.map(w=>teams[team][w]||0);
-    const active=values.filter(value=>value>0).length;
-    const total=values.reduce((a,b)=>a+b,0);
-    const latestTeam=teams[team][lastWeek]||0;
+  const lastSeen=t=>{ const w=[...weeks].reverse().find(w=>(teams[t][w]||0)>0); return w?fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'—'; };
+  let html='<thead><tr><th>Team</th><th style="text-align:center">Avg / week</th><th style="text-align:center">This week</th><th style="text-align:center">vs avg</th></tr></thead><tbody>';
+  mainTeams.forEach(team=>{
+    const avg=avgOf(team), latestTeam=teams[team][lastWeek]||0;
     html+='<tr><td class="campus">'+esc(team)+'</td><td style="text-align:center">'+avg+'</td>'
-      +'<td style="text-align:center">'+fmt(latestTeam)+'</td>'
-      +'<td style="text-align:center">'+active+'</td>'
-      +'<td style="text-align:center">'+fmt(total)+'</td>'
-      +'<td style="text-align:center">'+trend(latestTeam,avg)+'</td></tr>';
+      +'<td style="text-align:center">'+fmt(latestTeam)+'</td><td style="text-align:center">'+trend(latestTeam,avg)+'</td></tr>';
   });
+  if(!mainTeams.length) html+='<tr><td class="empty" colspan="4">No active teams in the last 4 weeks.</td></tr>';
   document.getElementById('volTeamTable').innerHTML=html+'</tbody>';
+  const wrap=document.getElementById('volInactiveWrap');
+  wrap.style.display=hiddenTeams.length?'':'none';
+  document.getElementById('volInactiveSum').textContent=`Inactive teams & service-time entries (${hiddenTeams.length})`;
+  document.getElementById('volInactiveTable').innerHTML='<thead><tr><th>Team</th><th style="text-align:center">Why hidden</th><th style="text-align:center">Last scheduled</th><th style="text-align:center">Avg / week</th></tr></thead><tbody>'
+    +hiddenTeams.map(t=>'<tr><td class="svc">'+esc(t)+'</td><td style="text-align:center">'+(isPseudo(t)?'Service time, not a team':'Nobody in last 4 weeks')+'</td><td style="text-align:center">'+lastSeen(t)+'</td><td style="text-align:center">'+avgOf(t)+'</td></tr>').join('')+'</tbody>';
+}
+let volChart=null;
+function drawVolChart(){
+  if(!volChart) return;
+  const t=document.getElementById('vTeamSel').value;
+  document.getElementById('volChartTitle').textContent=t?t+' by week':'Scheduled by week';
+  mkChart('chVolWeeks','bar',{labels:volChart.labels,datasets:[{label:t||'All teams',
+    data:t?volChart.weeks.map(w=>volChart.teams[t]&&volChart.teams[t][w]||0):volChart.totals,
+    backgroundColor:t?'#059669':'#4f46e5',borderRadius:3}]},
+    {plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
 }
 
 /* ---------------- next steps ---------------- */
@@ -1206,14 +1229,14 @@ async function renderNext(){
   const frows=(fres.data||[]).filter(r=>!cid||r.campus_id===cid);
   const decided=frows.reduce((a,r)=>a+(r.decided||0),0), decReg=frows.reduce((a,r)=>a+(r.registered||0),0);
   document.getElementById('nextStats').innerHTML=`
-    <div class="stat"><div class="lbl">Decisions${infoBtn('cards')}</div><div class="val">${fmt(cards)}</div><span class="delta flat">connect cards · ${fmt(hands)} hands raised</span></div>
+    <div class="stat"><div class="lbl">Decisions${infoBtn('cards')}</div><div class="val">${fmt(cards)}</div><span class="delta flat">connect cards · ${fmt(hands)} salvations</span></div>
     <div class="stat"><div class="lbl">Open follow-ups${infoBtn('open')}</div><div class="val">${fmt(open)}</div><span class="delta ${overdue?'down':'flat'}">${overdue?fmt(overdue)+' waiting over 7 days':open?'all within 7 days':'all caught up'}</span></div>
     <div class="stat"><div class="lbl">Baptized${infoBtn('baptized')}</div><div class="val">${fmt(bapt)}</div><span class="delta flat">${fmt(regs)} signed up · ${fmt(decReg)} of ${fmt(decided)} decisions signed up</span></div>`;
 
   // ---- charts ----
   const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
   nextChartData={labels,
-    dec:[{label:'Hands raised',data:weeks.map(w=>usher('salvations',w,cid)),backgroundColor:'#4f46e5',borderRadius:3},
+    dec:[{label:'Salvations',data:weeks.map(w=>usher('salvations',w,cid)),backgroundColor:'#4f46e5',borderRadius:3},
          {label:'Connect-card decisions',data:weeks.map(w=>pco('decision','total',w,cid)),backgroundColor:'#d97706',borderRadius:3}],
     bap:[{label:'Signed up',data:weeks.map(w=>pco('baptism_reg','total',w,cid)),backgroundColor:'#0891b2',borderRadius:3},
          {label:'Baptized',data:weeks.map(w=>usher('baptisms',w,cid)),backgroundColor:'#059669',borderRadius:3}]};
@@ -1244,7 +1267,7 @@ async function renderNext(){
 
   // ---- campus + week tables ----
   const th=(label)=>`<th style="text-align:center">${label}</th>`;
-  const head=th('Hands raised','hands')+th('Connect cards','cards')+th('Cards per 100 hands','ratio')+th('Open follow-ups','open')+th('Baptism sign-ups','regs')+th('Baptized','baptized');
+  const head=th('Salvations','hands')+th('Connect cards','cards')+th('Cards per 100 salvations','ratio')+th('Open follow-ups','open')+th('Baptism sign-ups','regs')+th('Baptized','baptized');
   const line=(week,campusId)=>{
     const h=usher('salvations',week,campusId), k=pco('decision','total',week,campusId);
     return c(fmt(h))+c(fmt(k))+c(h?Math.round(k/h*100):'—')+c(fmt(pco('decision','open_count',week,campusId)))
@@ -1470,7 +1493,7 @@ const PCO_BAPTISM_WORKFLOWS=[
 const PCO_BAPTISM_SIGNUP={name:'Baptism Sunday', url:'https://registrations.planningcenteronline.com/signups/2234946'};
 const wfLinks=()=>PCO_DECISION_WORKFLOWS.map(w=>({label:w.campus+' — '+w.name, url:w.url}));
 const SOURCES={
-  hands:{title:'Hands raised', from:'Usher reports',
+  hands:{title:'Salvations', from:'Usher reports',
     crumb:['Usher Form','“Salvations” answer','DestinyMetrics','Enter Counts','Salvations'],
     text:'What ushers submit on the Usher Form after each service, added up across every service in the range (Wednesday youth included).',
     links:[{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
@@ -1486,9 +1509,9 @@ const SOURCES={
     crumb:['Planning Center','People','Workflows','(campus) Decision for Christ workflow','cards not completed'],
     text:'Cards in the decision workflows that are still Ready or Snoozed — the people someone still needs to follow up with. Updates hourly.',
     links:wfLinks},
-  ratio:{title:'Cards ÷ hands', from:'Calculated here',
-    crumb:['Connect cards','÷','Hands raised'],
-    text:'Connect-card decisions divided by hands raised for the same weeks and campus. It shows how many of the people who responded in service also turned in a card.',
+  ratio:{title:'Cards per 100 salvations', from:'Calculated here',
+    crumb:['Connect cards','÷','Salvations'],
+    text:'Connect-card decisions divided by salvations (hands raised in service) for the same weeks and campus. It shows how many of the people who responded in service also turned in a card.',
     links:[]},
   regs:{title:'Baptism registrations', from:'Planning Center Registrations',
     crumb:['Planning Center','Registrations','Signups',PCO_BAPTISM_SIGNUP.name,'Attendees'],
@@ -1528,7 +1551,7 @@ const SOURCES={
     crumb:['Planning Center','Services','(campus) folder','Sunday plan','Scheduled people who haven’t declined'],
     text:'The number of different people scheduled to serve at each service time across every team in the campus’s Services folder, not counting anyone who declined. A person on two teams counts once. Shown here as the Volunteers number in Enter Counts.',
     links:[{label:'Planning Center Services', url:'https://services.planningcenteronline.com/'},{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
-  salvations:{title:'Salvations (hands raised)', from:'Usher reports',
+  salvations:{title:'Salvations', from:'Usher reports',
     crumb:['Usher Form','“Salvations” answer','DestinyMetrics','Enter Counts','Salvations'],
     text:'What ushers submit on the Usher Form after each service. Anyone with edit access can also type a number in here.',
     links:[{label:'Open Enter Counts to see each service’s number', view:'entry'}]},
@@ -1577,9 +1600,9 @@ const SOURCES={
     text:'How many different teams had at least one person scheduled in the selected range, after similar team names are grouped.',
     links:[{label:'Planning Center Services', url:'https://services.planningcenteronline.com/'}]},
   decisionsChart:{title:'Decisions by week', from:'Usher reports + Planning Center People',
-    crumb:['Hands raised: Usher Form › Salvations','Connect cards: Planning Center › People › Workflows'],
-    text:'Each week’s hands raised (usher reports, all services) next to the decision connect cards created that week in Planning Center. The gap is people who responded in service but didn’t turn in a card.',
-    links:()=>wfLinks().concat([{label:'Open Enter Counts to see hands raised by service', view:'entry'}])},
+    crumb:['Salvations: Usher Form › Salvations','Connect cards: Planning Center › People › Workflows'],
+    text:'Each week’s salvations — hands raised in service (usher reports, all services) next to the decision connect cards created that week in Planning Center. The gap is people who responded in service but didn’t turn in a card.',
+    links:()=>wfLinks().concat([{label:'Open Enter Counts to see salvations by service', view:'entry'}])},
   baptismChart:{title:'Baptism by week', from:'Planning Center Registrations + usher reports',
     crumb:['Registrations: Planning Center › Registrations › Baptism Sunday','Baptized: Usher Form › Baptisms'],
     text:'Baptism Sunday sign-ups by the week people registered, next to baptisms ushers reported that week. Sign-ups build up in the weeks before a Baptism Sunday — the Baptism Sundays table below lines them up per event.',
