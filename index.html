@@ -353,7 +353,7 @@
       <div class="table-scroll"><table class="grid" id="nextWeekTable"></table></div>
     </div>
     <div class="card" id="nextPeopleCard" style="display:none">
-      <h2>People <span class="pill">admins only</span><button type="button" class="info-btn" onclick="showSource(event,'people')" aria-label="Where the People list comes from" aria-expanded="false">i</button></h2>
+      <h2>People <span class="pill">your campuses</span><button type="button" class="info-btn" onclick="showSource(event,'people')" aria-label="Where the People list comes from" aria-expanded="false">i</button></h2>
       <div class="row filter-row" style="margin-bottom:10px">
         <label>Show
           <select id="nPeopleSel" onchange="renderNextPeople()" style="margin-left:6px">
@@ -366,7 +366,7 @@
         <button class="btn ghost sm" onclick="exportNextPeople()">Export this list (CSV)</button>
       </div>
       <div class="table-scroll"><table class="grid" id="nextPeopleTable"></table></div>
-      <p class="hint">Names link to the person in Planning Center. Only admin accounts can see this list.</p>
+      <p class="hint">Names link to the person in Planning Center. Counters see people from their own campuses; admins see everyone.</p>
     </div>
   </section>
 
@@ -1116,8 +1116,8 @@ async function renderNext(){
     sb.rpc('next_steps_counts_v2',{from_week:backISO}),
     sb.rpc('next_steps_funnel',{from_week:weeks[0]}),
     sb.from('sync_status').select('*').eq('job','next_steps'),
-    admin ? sb.from('next_steps_people').select('*').gte('week',weeks[0]).order('occurred_at',{ascending:false}).range(0,1999) : none,
-    admin ? sb.from('next_steps_people').select('pco_person_id').eq('source','baptism_reg').range(0,4999) : none
+    sb.from('next_steps_people').select('*').gte('week',weeks[0]).order('occurred_at',{ascending:false}).range(0,1999),
+    sb.from('next_steps_people').select('pco_person_id').eq('source','baptism_reg').range(0,4999)
   ]);
   if(token!==nextRenderToken) return;
   const err=[eres,cres,fres,pres,rres].map(r=>r.error).find(Boolean);
@@ -1220,10 +1220,10 @@ async function renderNext(){
   [...weeks].reverse().forEach(w=>{ wh+=`<tr><td class="campus">${fmtWeek(w)}</td>${line(w,cid)}</tr>`; });
   document.getElementById('nextWeekTable').innerHTML=wh+'</tbody>';
 
-  document.getElementById('nextPeopleCard').style.display=admin?'':'none';
+  document.getElementById('nextPeopleCard').style.display='';
   nextPeopleRows=(pres.data||[]).filter(r=>r.source!=='baptism_interest'&&(!cid||r.campus_id===cid));
   nextRegIds=new Set((rres.data||[]).map(r=>r.pco_person_id).filter(Boolean));
-  if(admin) renderNextPeople();
+  renderNextPeople();
 }
 function nextCampusName(id){ const x=campuses.find(k=>k.id===id); return x?x.name:''; }
 function nextDetail(r){
@@ -1257,7 +1257,7 @@ function renderNextPeople(){
   tbl.innerHTML=h+'</tbody>';
 }
 function exportNextPeople(){
-  if(myRole!=='admin'||!nextPeopleShown.length){ toast('Nothing to export in this view'); return; }
+  if(!nextPeopleShown.length){ toast('Nothing to export in this view'); return; }
   const safe=v=>{ let t=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
   const rows=[['date','name','campus','type','status','follow_up','registered_for_baptism','planning_center_link']];
   nextPeopleShown.forEach(r=>rows.push([String(r.occurred_at).slice(0,10),r.person_name||'',nextCampusName(r.campus_id),NEXT_TYPE[r.source]||r.source,
