@@ -1416,8 +1416,8 @@ function renderGTPeople(){
     +`<label>Address ${inp(r,'address','',ed)}</label><label>Children ${ta(r,'children',ed)}</label><label>Gifts ${inp(r,'gifts','',ed)}</label>`
     +`<label>Notes ${ta(r,'notes',ed)}</label><label>Something they’d like to know ${ta(r,'question',ed)}</label>`;
   // ---- desktop table ----
-  const cols=11+GT_BOOLS.length+(allC?1:0);
-  let h=`<thead><tr><th></th><th>Name</th>${allC?'<th>Campus</th>':''}<th>Steps</th><th>Start</th><th>Step 1</th><th>Step 2</th><th>Step 3</th><th>Table host</th><th>Team preference</th>${GT_BOOLS.map(b=>`<th>${b[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
+  const cols=9+GT_BOOLS.length;
+  let h=`<thead><tr><th></th><th>Name</th><th>Steps</th><th>Step 1</th><th>Step 2</th><th>Step 3</th><th>Table host</th><th>Team preference</th>${GT_BOOLS.map(b=>`<th>${b[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
   // ---- phone cards ----
   let cd='';
   groups.forEach(g=>{
@@ -1428,12 +1428,12 @@ function renderGTPeople(){
     g.rows.forEach(r=>{
       const ed=canEdit(r.campus_id), open=gtOpen.has(r.id), due=gtDueMark(r);
       h+=`<tr><td><button class="btn ghost sm" onclick="toggleGT('${r.id}')" aria-label="Details" aria-expanded="${open}">${open?'▾':'▸'}</button></td>`
-        +`<td>${inp(r,'name','',ed)}</td>${allC?`<td class="svc">${esc(gtCampusName(r.campus_id))}</td>`:''}<td style="white-space:nowrap">${gtSteps(r)}</td>`
-        +`<td>${inp(r,'start_date','date',ed)}</td><td>${inp(r,'step1_date','date',ed)}</td><td>${inp(r,'step2_date','date',ed)}</td><td>${inp(r,'step3_date','date',ed)}</td>`
+        +`<td>${inp(r,'name','',ed)}</td><td style="white-space:nowrap">${gtSteps(r)}</td>`
+        +`<td>${inp(r,'step1_date','date',ed)}</td><td>${inp(r,'step2_date','date',ed)}</td><td>${inp(r,'step3_date','date',ed)}</td>`
         +`<td>${inp(r,'table_host','',ed)}</td><td>${inp(r,'team_preference','',ed)}</td>`
         +GT_BOOLS.map(([f,l])=>`<td style="text-align:center"><input type="checkbox" style="width:auto;min-width:0" ${r[f]?'checked':''} ${ed?'':'disabled'} onchange="saveGT('${r.id}','${f}',this.checked)" aria-label="${l}"></td>`).join('')
         +`<td>${ed?`<button class="btn danger sm" onclick="deleteGT('${r.id}')" aria-label="Delete">✕</button>`:''}</td></tr>`;
-      if(open) h+=`<tr class="gt-detail"><td></td><td colspan="${cols-1}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;padding:6px 0">${details(r,ed)}<div class="hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')}</div></div></td></tr>`;
+      if(open) h+=`<tr class="gt-detail"><td></td><td colspan="${cols-1}"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px;padding:6px 0"><label>Start Sunday ${inp(r,'start_date','date',ed)}</label>${details(r,ed)}<div class="hint">Campus: ${esc(gtCampusName(r.campus_id))} · Source: ${esc(r.source||'')}</div></div></td></tr>`;
       cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')"><div><div class="nm">${esc(r.name)}${due?` <span class="badge red">${due}-day</span>`:''}</div>`
         +`<div class="sub">${esc([r.table_host&&('Host: '+r.table_host),allC&&gtCampusName(r.campus_id),r.team_joined&&'On a team'].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
       if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
