@@ -406,31 +406,6 @@
 
   <!-- ============ GROWTH TRACK ============ -->
   <section id="view-gt" style="display:none">
-    <div class="card">
-      <div class="row filter-row" style="align-items:center">
-        <label>Campus <select id="gtCampusSel" onchange="gtPage=1;renderGT()" style="margin-left:6px"></select></label>
-        <label>Show
-          <select id="gtShowSel" onchange="gtPage=1;renderGTPeople()" style="margin-left:6px">
-            <option value="active" selected>Not finished (missing a step)</option>
-            <option value="">Everyone</option>
-            <option value="done">Finished all 3 steps</option>
-            <option value="noteam">Finished, no team yet</option>
-          </select>
-        </label>
-        <label>Sort
-          <select id="gtSortSel" onchange="gtPage=1;renderGTPeople()" style="margin-left:6px">
-            <option value="az">Name A–Z</option>
-            <option value="za">Name Z–A</option>
-            <option value="new">Start date (newest)</option>
-            <option value="old">Start date (oldest)</option>
-          </select>
-        </label>
-        <input id="gtSearch" placeholder="Search name, phone, email…" oninput="gtPage=1;renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
-        <span style="margin-left:auto"></span>
-        <button class="btn sm" id="gtAddBtn" onclick="addGTPerson()">+ Add person</button>
-        <button class="btn ghost sm" onclick="exportGT()">Export CSV</button>
-      </div>
-    </div>
     <div class="cards" id="gtStats"></div>
     <div class="card">
       <h2>Growth Track by month <span class="pill">started vs. finished all 3 steps · by start month</span></h2>
@@ -442,6 +417,29 @@
     </div>
     <div class="card">
       <h2>People</h2>
+      <div class="row filter-row" style="align-items:center; margin-bottom:12px">
+        <label>Campus <select id="gtCampusSel" onchange="gtPage=1;renderGT()" style="margin-left:6px"></select></label>
+        <label>Show
+          <select id="gtShowSel" onchange="gtPage=1;renderGTPeople()" style="margin-left:6px">
+            <option value="active" selected>Not finished (missing a step)</option>
+            <option value="">Everyone</option>
+            <option value="done">Finished all 3 steps</option>
+            <option value="noteam">Finished, no team yet</option>
+          </select>
+        </label>
+        <label>Sort
+          <select id="gtSortSel" onchange="gtPage=1;renderGTPeople()" style="margin-left:6px">
+            <option value="new" selected>Start date (newest)</option>
+            <option value="az">Name A–Z</option>
+            <option value="za">Name Z–A</option>
+            <option value="old">Start date (oldest)</option>
+          </select>
+        </label>
+        <input id="gtSearch" placeholder="Search name, phone, email…" oninput="gtPage=1;renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
+        <span style="margin-left:auto"></span>
+        <button class="btn sm" id="gtAddBtn" onclick="addGTPerson()">+ Add person</button>
+        <button class="btn ghost sm" onclick="exportGT()">Export CSV</button>
+      </div>
       <div class="gt-cards" id="gtCards"></div>
       <div class="row" id="gtPager" style="justify-content:center; align-items:center; gap:12px; margin-top:10px"></div>
       <p class="hint">Tap a name to open their steps, follow-up checkboxes and details. Edits save automatically.</p>
