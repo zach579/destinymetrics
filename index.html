@@ -1420,10 +1420,11 @@ function renderGTPeople(){
   page.forEach(r=>{
     const ed=canEdit(r.campus_id), open=gtOpen.has(r.id);
     cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}</div>`
-      +`<div class="sub">${esc([r.start_date&&('Started '+gtFmt(r.start_date)),allC&&gtCampusName(r.campus_id),r.team_joined&&'On a team'].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
+      +`<div class="sub">${esc([r.start_date&&('Started '+gtFmt(r.start_date)),allC&&gtCampusName(r.campus_id),r.team_joined&&(r.teams_served?('On a team: '+r.teams_served.split(',').map(t=>t.trim()).filter(Boolean).join(', ')):'On a team')].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
     if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
       +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
       +`<div class="full" style="display:flex;flex-wrap:wrap;gap:14px;padding:4px 0">${chk(r,ed)}</div>`
+      +`<div class="full" style="font-size:12.5px"><b>Teams served:</b> ${esc((r.teams_served||'').split(',').map(t=>t.trim()).filter(Boolean).join(', ')||'None yet')}</div>`
       +`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
       +`<label>Gifts ${inp(r,'gifts','',ed)}</label><label class="full">Address ${inp(r,'address','',ed)}</label><label>Children ${ta(r,'children',ed)}</label>`
       +`<label>Notes ${ta(r,'notes',ed)}</label><label class="full">Something they’d like to know ${ta(r,'question',ed)}</label>`
