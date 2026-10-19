@@ -347,7 +347,7 @@
     <details class="fold" id="volBgFold" style="display:none" ontoggle="try{localStorage.setItem('volBgOpen',this.open?'1':'0')}catch(e){}">
       <summary>Background checks needed<span class="pill" id="volBgCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">Growth Track grads</span></summary>
       <div class="card">
-        <p class="hint" style="margin:0 0 8px">People who finished all 3 Growth Track steps and don’t have a valid background check. <b>Order</b> opens their Planning Center profile in a new tab so you can order the check there, then marks them ordered here and checks “BG invite” on their Growth Track card. <b>Remove</b> takes them off this list.</p>
+        <p class="hint" style="margin:0 0 8px">People who finished all 3 Growth Track steps and don’t have a valid background check. <b>Order</b> opens their Planning Center profile in a new tab so you can order the check there, then marks them ordered here, checks “BG invite” on their Growth Track card, and emails them a heads-up from Zach. <b>Remove</b> takes them off this list.</p>
         <div id="volBgList"></div>
         <p class="hint" id="volBgDone" style="margin-bottom:0"></p>
       </div>
@@ -512,6 +512,9 @@
 /* ================= CONFIG — paste your values from Supabase → Settings → API ================= */
 const SUPABASE_URL      = 'https://ujzmknckieektcdbpyvr.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_0It-cjntEVG4TmR-dSLYIg_PynHuO_8';
+// Apps Script web app (doPost in Code.js) that emails a person when an admin presses Order on
+// Volunteers → Background checks needed. Paste the deployment's /exec URL here; empty = emails off.
+const BG_EMAIL_URL = '';
 /* ============================================================================================= */
 
 const METRICS = [
@@ -1443,6 +1446,7 @@ function renderGTPeople(){
     if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
       +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
       +`<div class="full" style="display:flex;flex-wrap:wrap;gap:14px;padding:4px 0">${chk(r,ed)}</div>`
+      +(myRole==='admin'&&r.bg_email_sent_at?`<div class="full hint" style="margin:0">BG heads-up email sent ${esc(bgDate(r.bg_email_sent_at))}${r.bg_email_to?' to '+esc(r.bg_email_to):''}</div>`:'')
       +`<div class="full" style="font-size:12.5px"><b>Teams served:</b> ${esc((r.teams_served||'').split(',').map(t=>t.trim()).filter(Boolean).join(', ')||'None yet')}</div>`
       +`<label>Phone ${inp(r,'phone','',ed)}</label><label>Email ${inp(r,'email','email',ed)}</label><label>Birth date ${inp(r,'birth_date','date',ed)}</label>`
       +`<label>Gifts ${inp(r,'gifts','',ed)}</label><label class="full">Address ${inp(r,'address','',ed)}</label><label>Children ${ta(r,'children',ed)}</label>`
@@ -1462,7 +1466,7 @@ async function loadVolBg(){
   const my=++bgToken, fold=document.getElementById('volBgFold');
   if(myRole!=='admin'){ fold.style.display='none'; return; }
   const {data,error}=await sb.from('growth_track_people')
-    .select('id,name,campus_id,bg_status,bg_reason,bg_last_status,bg_invite,team_joined,teams_served,pco_person_id')
+    .select('id,name,campus_id,bg_status,bg_reason,bg_last_status,bg_invite,team_joined,teams_served,pco_person_id,bg_email_sent_at,bg_email_to')
     .in('bg_status',['needed','ordered','removed']);
   if(my!==bgToken) return;
   if(error){ toast(error.message,true); return; }
@@ -1481,7 +1485,7 @@ function renderVolBg(){
   document.getElementById('volBgList').innerHTML=need.map(r=>{
     const teams=(r.teams_served||'').split(',').map(t=>t.trim()).filter(Boolean);
     const never=/never/i.test(r.bg_reason||'');
-    const sub=[r.bg_last_status, teams.length?'Serving: '+teams.join(', '):(r.team_joined?'Serving':''), !cid&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
+    const sub=[r.bg_last_status, r.bg_email_sent_at&&('Emailed '+bgDate(r.bg_email_sent_at)), teams.length?'Serving: '+teams.join(', '):(r.team_joined?'Serving':''), !cid&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
     return `<div class="bg-row"><div style="min-width:0"><div class="nm">${esc(r.name)}${r.bg_reason?`<span class="bg-tag${never?' never':''}">${esc(r.bg_reason)}</span>`:''}</div>`
       +`<div class="sub">${esc(sub)}</div></div>`
       +`<div class="acts"><button class="btn sm" onclick="orderBg('${r.id}')">Order</button><button class="btn ghost sm" onclick="removeBg('${r.id}')">Remove</button></div></div>`;
@@ -1489,18 +1493,37 @@ function renderVolBg(){
   const ord=inC.filter(r=>r.bg_status==='ordered').length, rem=inC.filter(r=>r.bg_status==='removed').length;
   document.getElementById('volBgDone').textContent=(ord||rem)?`${ord} ordered · ${rem} removed so far`:'';
 }
+function bgDate(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function bgApply(r,patch){ Object.assign(r,patch); const g=gtRows.find(x=>x.id===r.id); if(g) Object.assign(g,patch); renderVolBg(); if(gtRows.length) renderGTPeople(); }
 async function setBg(r,patch,msg){
   const {error}=await sb.from('growth_track_people').update(patch).eq('id',r.id);
-  if(error){ toast('Not saved: '+error.message,true); return; }
-  Object.assign(r,patch); const g=gtRows.find(x=>x.id===r.id); if(g) Object.assign(g,patch);
-  toast(msg); renderVolBg(); if(gtRows.length) renderGTPeople();
+  if(error){ toast('Not saved: '+error.message,true); return false; }
+  bgApply(r,patch); if(msg) toast(msg); return true;
 }
-function orderBg(id){
+// POST to the Apps Script web app. text/plain avoids a CORS preflight, which Apps Script can't answer.
+async function sendBgEmail(r){
+  if(!BG_EMAIL_URL) return {sent:false,error:'email sending isn’t set up yet'};
+  try{
+    const {data}=await sb.auth.getSession(); const tok=data&&data.session&&data.session.access_token;
+    if(!tok) return {sent:false,error:'not signed in'};
+    const res=await fetch(BG_EMAIL_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'bg_order_email',access_token:tok,gt_id:r.id})});
+    if(!res.ok) return {sent:false,error:'HTTP '+res.status};
+    return await res.json();
+  }catch(e){ return {sent:false,error:e.message||String(e)}; }
+}
+async function orderBg(id){
   const r=bgRows.find(x=>x.id===id); if(!r) return;
   if(r.pco_person_id) window.open('https://people.planningcenteronline.com/people/AC'+encodeURIComponent(r.pco_person_id),'_blank','noopener');
   else toast('No Planning Center profile linked. Order it from their profile in PCO.',true);
-  if(!confirm(`Mark ${r.name} as ordered?\n\nOrder the background check on their Planning Center profile (the tab that just opened), then press OK.`)) return;
-  setBg(r,{bg_status:'ordered',bg_invite:true,bg_status_at:new Date().toISOString()},`${r.name} marked as ordered`);
+  if(!confirm(`Mark ${r.name} as ordered and email them?\n\nOrder the background check on their Planning Center profile (the tab that just opened), then press OK. They’ll get a heads-up email from Zach.`)) return;
+  if(!(await setBg(r,{bg_status:'ordered',bg_invite:true,bg_status_at:new Date().toISOString()},null))) return;
+  toast(`${r.name} marked as ordered · sending email…`,false,8000);
+  const em=await sendBgEmail(r);
+  if(em.sent){ bgApply(r,{bg_email_sent_at:em.sent_at||new Date().toISOString(),bg_email_to:em.to}); toast(`Marked ordered · Email sent to ${em.to}`,false,5000); }
+  else if(em.reason==='no_email') toast(`Marked ordered · No email on file, not sent`,true,6000);
+  else if(em.reason==='already_sent') toast(`Marked ordered · Already emailed ${em.to||''} in the last 24 hours, not resent`,false,6000);
+  else toast(`Marked ordered, but the email wasn’t sent: ${String(em.error||'unknown error').replace(/_/g,' ')}`,true,8000);
 }
 function removeBg(id){
   const r=bgRows.find(x=>x.id===id); if(!r||!confirm(`Remove ${r.name} from Background checks needed?`)) return;
@@ -1928,11 +1951,11 @@ async function importLocal(){
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmt(n){ return (n||0).toLocaleString(); }
 let toastTimer=null;
-function toast(msg,isErr=false){
+function toast(msg,isErr=false,ms=3200){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show'+(isErr?' err':'');
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),ms);
 }
 
 boot();

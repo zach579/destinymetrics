@@ -1238,3 +1238,141 @@ function installNextStepsTrigger() {
   });
   ScriptApp.newTrigger('syncNextSteps').timeBased().everyHours(1).create();
 }
+
+/* ================= BACKGROUND CHECK HEADS-UP EMAIL (web app) =================
+ * The metrics app's Volunteers tab → "Background checks needed" → Order posts
+ * {access_token, gt_id} here (Content-Type text/plain, so no CORS preflight).
+ * We verify the caller is a signed-in CampusMetrics admin, look up the person,
+ * find their email (PCO first, then the Growth Track row), and send a heads-up
+ * from the script owner (Zach). A send is logged on the growth_track_people
+ * row (bg_email_sent_at/to/template) and not repeated within 24 hours.
+ * Deploy: Deploy → New deployment → Web app, Execute as: Me, Who has access: Anyone.
+ */
+const BG_EMAIL_DEDUPE_HOURS = 24;
+const BG_EMAIL_SENDER_NAME = 'Zach Taylor';
+const BG_EMAIL_TEMPLATES = {
+  FIRST: {
+    subject: 'A quick heads-up about your background check',
+    paragraphs: [
+      'Thank you so much for finishing Growth Track and stepping up to serve on the Dream Team! As part of getting you set up, we\'re ordering a background check for you. We do this for every one of our volunteers. It helps us keep our church family, especially our kids, safe.',
+      'You\'ll get an email soon from Protect My Ministry with a link to fill out a short consent form. The link expires after 14 days, so please complete it when you see it. If you have any questions, just reply to this email.'
+    ]
+  },
+  REORDER: {
+    subject: 'A new background check link is on the way',
+    paragraphs: [
+      'Thank you for serving on the Dream Team! It looks like the last background check link we sent you expired before it was completed, so we\'re sending you a new one. We do this for every one of our volunteers. It helps us keep our church family, especially our kids, safe.',
+      'You\'ll get an email soon from Protect My Ministry with a fresh link to fill out a short consent form. It expires after 14 days, so please complete it when you see it. If you have any questions, just reply to this email.'
+    ]
+  }
+};
+
+function doPost(e) {
+  var out;
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (body.action && body.action !== 'bg_order_email') out = { sent: false, error: 'unknown_action' };
+    else out = bgOrderEmail_(body);
+  } catch (err) {
+    out = { sent: false, error: String(err && err.message || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function bgSb_(method, path, token, payload) {
+  var opts = {
+    method: method, muteHttpExceptions: true,
+    headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + token }
+  };
+  if (payload) {
+    opts.contentType = 'application/json';
+    opts.payload = JSON.stringify(payload);
+    opts.headers.Prefer = 'return=minimal';
+  }
+  var res = UrlFetchApp.fetch(SUPABASE_URL + path, opts);
+  var code = res.getResponseCode(), text = res.getContentText();
+  if (code >= 300) throw new Error('Supabase ' + code + ': ' + text.slice(0, 200));
+  return text ? JSON.parse(text) : null;
+}
+
+function bgOrderEmail_(body) {
+  var token = String(body.access_token || ''), gtId = String(body.gt_id || '');
+  if (!token) return { sent: false, error: 'not_signed_in' };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(gtId)) return { sent: false, error: 'bad_gt_id' };
+
+  // 1. Who is calling? Must be a signed-in admin (checked with their own token under RLS).
+  var user;
+  try { user = bgSb_('get', '/auth/v1/user', token); } catch (err) { return { sent: false, error: 'not_signed_in' }; }
+  if (!user || !user.id) return { sent: false, error: 'not_signed_in' };
+  var prof = bgSb_('get', '/rest/v1/profiles?select=role&id=eq.' + encodeURIComponent(user.id), token);
+  if (!prof || !prof.length || prof[0].role !== 'admin') return { sent: false, error: 'not_admin' };
+
+  // One send at a time so a double-click can't send twice.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { sent: false, error: 'busy_try_again' };
+  try {
+    // 2. The Growth Track person.
+    var rows = bgSb_('get', '/rest/v1/growth_track_people?select=id,name,email,pco_person_id,bg_reason,bg_last_status,bg_status,bg_email_sent_at,bg_email_to&id=eq.' + gtId, token);
+    if (!rows || !rows.length) return { sent: false, error: 'not_found' };
+    var r = rows[0];
+    if (r.bg_status !== 'needed' && r.bg_status !== 'ordered') return { sent: false, error: 'not_on_list' };
+
+    // 3. Don't resend within 24 hours.
+    if (r.bg_email_sent_at && (Date.now() - new Date(r.bg_email_sent_at).getTime()) < BG_EMAIL_DEDUPE_HOURS * 3600 * 1000) {
+      return { sent: false, reason: 'already_sent', to: r.bg_email_to, sent_at: r.bg_email_sent_at };
+    }
+
+    // 4. Find an email: PCO (primary first), then the Growth Track row.
+    var to = '';
+    if (r.pco_person_id && /^\d+$/.test(String(r.pco_person_id))) {
+      try { to = bgPcoEmail_(String(r.pco_person_id)); } catch (err) { Logger.log('PCO email lookup failed for ' + r.pco_person_id + ': ' + err); }
+    }
+    if (!to && r.email && /@/.test(r.email)) to = String(r.email).trim();
+    if (!to) return { sent: false, reason: 'no_email' };
+
+    // 5. Template + send from the script owner.
+    var templateKey = bgTemplateKey_(r);
+    var msg = bgEmailContent_(templateKey, r.name);
+    MailApp.sendEmail({ to: to, subject: msg.subject, body: msg.text, htmlBody: msg.html, name: BG_EMAIL_SENDER_NAME });
+
+    // 6. Log it on the row (with the admin's token; the DB guard allows admins only).
+    var sentAt = new Date().toISOString(), warning = null;
+    try {
+      bgSb_('patch', '/rest/v1/growth_track_people?id=eq.' + gtId, token,
+        { bg_email_sent_at: sentAt, bg_email_to: to, bg_email_template: templateKey });
+    } catch (err) {
+      warning = 'sent_but_not_logged: ' + err.message;
+      Logger.log(warning);
+    }
+    return { sent: true, to: to, template: templateKey, sent_at: sentAt, warning: warning };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function bgPcoEmail_(pcoId) {
+  var list = (pcoGet_('/people/v2/people/' + pcoId + '/emails').data || [])
+    .map(function (d) { return d.attributes || {}; })
+    .filter(function (a) { return a.address && /@/.test(a.address) && !a.blocked; });
+  list.sort(function (a, b) { return (b.primary ? 1 : 0) - (a.primary ? 1 : 0); });
+  return list.length ? String(list[0].address).trim() : '';
+}
+
+/** 'Never checked' with nothing on file → FIRST; an expired invite or any prior check → REORDER. */
+function bgTemplateKey_(r) {
+  var reason = String(r.bg_reason || ''), last = String(r.bg_last_status || '');
+  var priorOnFile = last && !/^no check on file$/i.test(last.trim());
+  return (/never checked/i.test(reason) && !priorOnFile) ? 'FIRST' : 'REORDER';
+}
+
+function bgEmailContent_(templateKey, fullName) {
+  var t = BG_EMAIL_TEMPLATES[templateKey];
+  var first = String(fullName || '').trim().split(/\s+/)[0] || 'there';
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var text = 'Hi ' + first + ',\n\n' + t.paragraphs.join('\n\n') + '\n\nThanks for serving with us!\nZach';
+  var html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222">'
+    + '<p>Hi ' + esc(first) + ',</p>'
+    + t.paragraphs.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('')
+    + '<p>Thanks for serving with us!<br>Zach</p></div>';
+  return { subject: t.subject, text: text, html: html };
+}
