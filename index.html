@@ -344,6 +344,14 @@
         <label class="check-label" style="white-space:nowrap"><input type="checkbox" id="vRawNames" onchange="renderVols()"> Raw team names</label>
       </div>
     </div>
+    <details class="fold" id="volBgFold" style="display:none" ontoggle="try{localStorage.setItem('volBgOpen',this.open?'1':'0')}catch(e){}">
+      <summary>Background checks needed<span class="pill" id="volBgCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">Growth Track grads</span></summary>
+      <div class="card">
+        <p class="hint" style="margin:0 0 8px">People who finished all 3 Growth Track steps and don’t have a valid background check. <b>Order</b> opens their Planning Center profile in a new tab so you can order the check there, then marks them ordered here and checks “BG invite” on their Growth Track card. <b>Remove</b> takes them off this list.</p>
+        <div id="volBgList"></div>
+        <p class="hint" id="volBgDone" style="margin-bottom:0"></p>
+      </div>
+    </details>
     <div class="cards" id="volStats" style="margin-bottom:6px"></div>
     <p class="hint" style="margin:0 0 18px">“Scheduled” is team spots from Planning Center (one person on two teams counts twice). “Usher volunteer count” is the headcount ushers enter on the Usher Form.</p>
     <div class="card">
@@ -428,14 +436,6 @@
   <!-- ============ GROWTH TRACK ============ -->
   <section id="view-gt" style="display:none">
     <div class="cards" id="gtStats"></div>
-    <details class="fold" id="gtBgFold" style="display:none" ontoggle="try{localStorage.setItem('gtBgOpen',this.open?'1':'0')}catch(e){}">
-      <summary>Background checks needed<span class="pill" id="gtBgCount">0</span></summary>
-      <div class="card">
-        <p class="hint" style="margin:0 0 8px">Finished all 3 steps without a valid background check. <b>Order</b> opens their Planning Center profile in a new tab so you can order the check there, then marks them ordered here and checks “BG invite”. <b>Remove</b> takes them off this list.</p>
-        <div id="gtBgList"></div>
-        <p class="hint" id="gtBgDone" style="margin-bottom:0"></p>
-      </div>
-    </details>
     <div class="card">
       <h2>Growth Track by month <span class="pill">started vs. finished all 3 steps · by start month</span></h2>
       <div class="chartbox short"><canvas id="chGT"></canvas></div>
@@ -1064,6 +1064,7 @@ function cleanTeamName(name){
 
 async function renderVols(){
   const token=++volsRenderToken;
+  loadVolBg();
   const n=+document.getElementById('vRangeSel').value;
   const weeks=lastNWeeks(n);
   const [{data:tdata,error:e1},{data:edata,error:e2}]=await Promise.all([
@@ -1078,6 +1079,7 @@ async function renderVols(){
   csel.innerHTML='<option value="">All campuses</option>'+campuses.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   if([...csel.options].some(x=>x.value===ccur)) csel.value=ccur;
   const cid=csel.value||null;
+  renderVolBg();
 
   const ssel=document.getElementById('vServiceSel');
   const scur=ssel.value;
@@ -1393,7 +1395,7 @@ async function renderGT(){
   if(my!==gtRenderToken) return;
   if(error){ toast(error.message,true); return; }
   gtRows=data||[];
-  renderGTStats(); renderGTBg(); renderGTChart(); renderGTPeople();
+  renderGTStats(); renderGTChart(); renderGTPeople();
 }
 function renderGTStats(){
   const started=gtRows.length, done=gtRows.filter(gtDone).length, team=gtRows.filter(r=>r.team_joined).length;
@@ -1436,7 +1438,7 @@ function renderGTPeople(){
   let cd='';
   page.forEach(r=>{
     const ed=canEdit(r.campus_id), open=gtOpen.has(r.id);
-    cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}</div>`
+    cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}${myRole==='admin'&&r.bg_status==='needed'?'<span class="bg-tag never" title="On the Background checks needed list (Volunteers tab)">BG check needed</span>':''}</div>`
       +`<div class="sub">${esc([r.start_date&&('Started '+gtFmt(r.start_date)),allC&&gtCampusName(r.campus_id),r.team_joined&&(r.teams_served?('On a team: '+r.teams_served.split(',').map(t=>t.trim()).filter(Boolean).join(', ')):'On a team')].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
     if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
       +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
@@ -1453,43 +1455,56 @@ function renderGTPeople(){
     +`<span class="hint" style="margin:0">Page ${gtPage} of ${pages} · ${rows.length} ${rows.length===1?'person':'people'}</span>`
     +`<button class="btn ghost sm" ${gtPage>=pages?'disabled':''} onclick="gtGoPage(${gtPage+1})">Next →</button>`;
 }
-/* Background checks needed (admin only). Ordering happens on the PCO profile; the app just tracks it. */
-function renderGTBg(){
-  const fold=document.getElementById('gtBgFold');
-  const need=myRole==='admin'?gtRows.filter(r=>r.bg_status==='needed'):[];
+/* Background checks needed (admin only, shown on Volunteers). Ordering happens on the PCO profile; the app just tracks it.
+   Today the list is Growth Track grads (growth_track_people.bg_status); it may grow to cover all volunteers later. */
+let bgRows=[], bgToken=0;
+async function loadVolBg(){
+  const my=++bgToken, fold=document.getElementById('volBgFold');
+  if(myRole!=='admin'){ fold.style.display='none'; return; }
+  const {data,error}=await sb.from('growth_track_people')
+    .select('id,name,campus_id,bg_status,bg_reason,bg_last_status,bg_invite,team_joined,teams_served,pco_person_id')
+    .in('bg_status',['needed','ordered','removed']);
+  if(my!==bgToken) return;
+  if(error){ toast(error.message,true); return; }
+  bgRows=data||[]; renderVolBg();
+}
+function renderVolBg(){
+  const fold=document.getElementById('volBgFold');
+  const cid=document.getElementById('vCampusSel').value||null;
+  const inC=bgRows.filter(r=>!cid||r.campus_id===cid);
+  const need=myRole==='admin'?inC.filter(r=>r.bg_status==='needed'):[];
   if(!need.length){ fold.style.display='none'; return; }
-  if(!fold.dataset.init){ fold.dataset.init='1'; let o='1'; try{ o=localStorage.getItem('gtBgOpen')||'1'; }catch(e){} fold.open=o!=='0'; }
+  if(!fold.dataset.init){ fold.dataset.init='1'; let o='1'; try{ o=localStorage.getItem('volBgOpen')||'1'; }catch(e){} fold.open=o!=='0'; }
   fold.style.display='';
-  document.getElementById('gtBgCount').textContent=need.length;
+  document.getElementById('volBgCount').textContent=need.length;
   need.sort((a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'}));
-  const allC=!document.getElementById('gtCampusSel').value;
-  document.getElementById('gtBgList').innerHTML=need.map(r=>{
+  document.getElementById('volBgList').innerHTML=need.map(r=>{
     const teams=(r.teams_served||'').split(',').map(t=>t.trim()).filter(Boolean);
     const never=/never/i.test(r.bg_reason||'');
-    const sub=[r.bg_last_status, teams.length?'Serving: '+teams.join(', '):(r.team_joined?'Serving':''), allC&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
+    const sub=[r.bg_last_status, teams.length?'Serving: '+teams.join(', '):(r.team_joined?'Serving':''), !cid&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
     return `<div class="bg-row"><div style="min-width:0"><div class="nm">${esc(r.name)}${r.bg_reason?`<span class="bg-tag${never?' never':''}">${esc(r.bg_reason)}</span>`:''}</div>`
       +`<div class="sub">${esc(sub)}</div></div>`
-      +`<div class="acts"><button class="btn sm" onclick="orderGTBg('${r.id}')">Order</button><button class="btn ghost sm" onclick="removeGTBg('${r.id}')">Remove</button></div></div>`;
+      +`<div class="acts"><button class="btn sm" onclick="orderBg('${r.id}')">Order</button><button class="btn ghost sm" onclick="removeBg('${r.id}')">Remove</button></div></div>`;
   }).join('');
-  const ord=gtRows.filter(r=>r.bg_status==='ordered').length, rem=gtRows.filter(r=>r.bg_status==='removed').length;
-  document.getElementById('gtBgDone').textContent=(ord||rem)?`${ord} ordered · ${rem} removed so far`:'';
+  const ord=inC.filter(r=>r.bg_status==='ordered').length, rem=inC.filter(r=>r.bg_status==='removed').length;
+  document.getElementById('volBgDone').textContent=(ord||rem)?`${ord} ordered · ${rem} removed so far`:'';
 }
-async function setGTBg(r,patch,msg){
+async function setBg(r,patch,msg){
   const {error}=await sb.from('growth_track_people').update(patch).eq('id',r.id);
   if(error){ toast('Not saved: '+error.message,true); return; }
-  Object.assign(r,patch); toast(msg);
-  renderGTBg(); renderGTPeople();
+  Object.assign(r,patch); const g=gtRows.find(x=>x.id===r.id); if(g) Object.assign(g,patch);
+  toast(msg); renderVolBg(); if(gtRows.length) renderGTPeople();
 }
-function orderGTBg(id){
-  const r=gtRows.find(x=>x.id===id); if(!r) return;
+function orderBg(id){
+  const r=bgRows.find(x=>x.id===id); if(!r) return;
   if(r.pco_person_id) window.open('https://people.planningcenteronline.com/people/AC'+encodeURIComponent(r.pco_person_id),'_blank','noopener');
   else toast('No Planning Center profile linked. Order it from their profile in PCO.',true);
   if(!confirm(`Mark ${r.name} as ordered?\n\nOrder the background check on their Planning Center profile (the tab that just opened), then press OK.`)) return;
-  setGTBg(r,{bg_status:'ordered',bg_invite:true,bg_status_at:new Date().toISOString()},`${r.name} marked as ordered`);
+  setBg(r,{bg_status:'ordered',bg_invite:true,bg_status_at:new Date().toISOString()},`${r.name} marked as ordered`);
 }
-function removeGTBg(id){
-  const r=gtRows.find(x=>x.id===id); if(!r||!confirm(`Remove ${r.name} from Background checks needed?`)) return;
-  setGTBg(r,{bg_status:'removed',bg_status_at:new Date().toISOString()},`${r.name} removed from the list`);
+function removeBg(id){
+  const r=bgRows.find(x=>x.id===id); if(!r||!confirm(`Remove ${r.name} from Background checks needed?`)) return;
+  setBg(r,{bg_status:'removed',bg_status_at:new Date().toISOString()},`${r.name} removed from the list`);
 }
 function toggleGT(id){ gtOpen.has(id)?gtOpen.delete(id):gtOpen.add(id); renderGTPeople(); }
 async function saveGT(id,field,value){
