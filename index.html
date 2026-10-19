@@ -1498,8 +1498,12 @@ function renderVolBg(){
 function bgDate(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
 function bgApply(r,patch){ Object.assign(r,patch); const g=gtRows.find(x=>x.id===r.id); if(g) Object.assign(g,patch); renderVolBg(); if(gtRows.length) renderGTPeople(); }
 async function setBg(r,patch,msg){
-  const {error}=await sb.from('growth_track_people').update(patch).eq('id',r.id);
-  if(error){ toast('Not saved: '+error.message,true); return false; }
+  let res;
+  try{ res=await sb.from('growth_track_people').update(patch).eq('id',r.id).select('id'); }
+  catch(e){ toast('Not saved: '+(e.message||e),true,8000); return false; }
+  if(res.error){ toast('Not saved: '+res.error.message,true,8000); return false; }
+  // RLS can silently match 0 rows; treat that as a failure instead of pretending it saved.
+  if(!res.data||!res.data.length){ toast(`Not saved: no permission to update ${r.name} (0 rows changed). Try signing out and back in.`,true,8000); return false; }
   bgApply(r,patch); if(msg) toast(msg); return true;
 }
 // POST to the Apps Script web app. text/plain avoids a CORS preflight, which Apps Script can't answer.
@@ -1516,9 +1520,11 @@ async function sendBgEmail(r){
 }
 async function orderBg(id){
   const r=bgRows.find(x=>x.id===id); if(!r) return;
+  // Confirm FIRST: opening the PCO tab before confirm() steals focus and Chrome dismisses the dialog (returns false).
+  if(!confirm(`Mark ${r.name} as ordered and email them?\n\nPress OK and their Planning Center profile opens in a new tab so you can order the check there. They’ll get a heads-up email from Zach.`)) return;
+  // Open the tab synchronously, before any await, so the popup blocker treats it as part of the click.
   if(r.pco_person_id) window.open('https://people.planningcenteronline.com/people/AC'+encodeURIComponent(r.pco_person_id),'_blank','noopener');
-  else toast('No Planning Center profile linked. Order it from their profile in PCO.',true);
-  if(!confirm(`Mark ${r.name} as ordered and email them?\n\nOrder the background check on their Planning Center profile (the tab that just opened), then press OK. They’ll get a heads-up email from Zach.`)) return;
+  else toast('No Planning Center profile linked. Order it from their profile in PCO.',true,5000);
   if(!(await setBg(r,{bg_status:'ordered',bg_invite:true,bg_status_at:new Date().toISOString()},null))) return;
   toast(`${r.name} marked as ordered · sending email…`,false,8000);
   const em=await sendBgEmail(r);
