@@ -1108,6 +1108,7 @@ function syncNextSteps() {
     const result = syncNextSteps_();
     nextStepsReport_(true, result.rows, null, result.meta);
     Logger.log('Next steps synced: ' + result.rows + ' rows (' + result.summary + ')');
+    try { ensureGrowthTrackStep3Trigger_(); } catch (e3) { Logger.log('GT Step3 trigger ensure: ' + e3); }
   } catch (err) {
     const msg = String(err && err.message ? err.message : err);
     try { nextStepsReport_(false, null, msg, null); } catch (e2) { Logger.log('Could not record failure: ' + e2); }
@@ -1458,6 +1459,29 @@ const GT_STEP3_TEAM_ALIASES = [
   { re: /youth|middle\/?high|6-12/i, label: 'Youth (Middle/High School)' }
 ];
 
+/** Create (or replace) the every-6-hours form 551600 sync trigger. Safe to re-run. */
+
+/** Idempotent: create the 6-hour form 551600 trigger if missing. Called from syncNextSteps. */
+function ensureGrowthTrackStep3Trigger_() {
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'syncGrowthTrackStep3Forms';
+  });
+  if (exists) return;
+  ScriptApp.newTrigger('syncGrowthTrackStep3Forms').timeBased().everyHours(6).create();
+  Logger.log('Growth Track Step 3 form sync trigger auto-installed (every 6 hours).');
+}
+
+function installGrowthTrackStep3Trigger() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'syncGrowthTrackStep3Forms') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger('syncGrowthTrackStep3Forms').timeBased().everyHours(6).create();
+  Logger.log('Growth Track Step 3 form sync trigger installed (every 6 hours, ' +
+    Session.getScriptTimeZone() + ').');
+}
+
 function dryRunGrowthTrackStep3Forms() {
   return syncGrowthTrackStep3Forms({ dryRun: true });
 }
@@ -1638,11 +1662,11 @@ function submitGrowthTrackStep3Form_(person, optionIds) {
   if (!optionIds || !optionIds.length) throw new Error('no option ids');
   var pco = String(person.pco_person_id);
   var included = [];
-  var phone = gtStep3NormalizePhone_(person.phone);
-  if (phone) {
+  var phoneDigits = gtStep3PhoneDigits_(person.phone);
+  if (phoneDigits) {
     included.push({
       type: 'FormSubmissionValue',
-      attributes: { form_field_id: GT_STEP3_FIELD_PHONE, value: phone }
+      attributes: { form_field_id: GT_STEP3_FIELD_PHONE, number: phoneDigits, location: 'Mobile' }
     });
   }
   optionIds.forEach(function (oid) {
@@ -1669,13 +1693,13 @@ function submitGrowthTrackStep3Form_(person, optionIds) {
   return String(id);
 }
 
-function gtStep3NormalizePhone_(phone) {
+/** 10-digit US phone for form 551600 phone_number field, or ''. */
+function gtStep3PhoneDigits_(phone) {
   var s = String(phone || '').trim();
   if (!s || /^n\/?a$/i.test(s) || /email/i.test(s) || !/\d/.test(s)) return '';
   var digits = s.replace(/\D/g, '');
   if (digits.length === 11 && digits.charAt(0) === '1') digits = digits.slice(1);
-  if (digits.length !== 10) return s; // pass through oddly formatted but non-empty
-  return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+  return digits.length === 10 ? digits : '';
 }
 
 function gtStep3Stamp_(token, gtId, submissionId) {
