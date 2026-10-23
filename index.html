@@ -138,6 +138,8 @@
   .bg-tag{display:inline-block; font-size:11.5px; font-weight:600; border-radius:20px; padding:1px 8px; margin-left:6px; background:#fef3c7; color:#92400e; vertical-align:1px}
   .bg-tag.never{background:#fee2e2; color:#991b1b}
   @media(max-width:700px){ .bg-row{flex-wrap:wrap; gap:6px 10px} .bg-row .acts{margin-left:auto} .bg-row .acts .btn.sm{min-height:38px; padding:6px 14px; font-size:14px} }
+  .bg-tag.overdue{background:#fee2e2; color:#991b1b}
+  .bg-tag.due{background:#e0e7ff; color:#3730a3}
   .gt-group-h{font-weight:700; padding:10px 4px 6px; cursor:pointer; font-size:14px}
   table.grid#volTeamTable,table.grid#volInactiveTable{min-width:0!important}
   #volTeamTable td,#volTeamTable th,#volInactiveTable td,#volInactiveTable th{position:static!important; box-shadow:none!important}
@@ -436,6 +438,13 @@
   <!-- ============ GROWTH TRACK ============ -->
   <section id="view-gt" style="display:none">
     <div class="cards" id="gtStats"></div>
+    <details class="fold" id="gtContactFold" style="display:none" ontoggle="try{localStorage.setItem('gtContactOpen',this.open?'1':'0')}catch(e){}">
+      <summary>Who to contact<span class="pill" id="gtContactCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">missing the next step · this week or overdue</span></summary>
+      <div class="card">
+        <p class="hint" style="margin:0 0 8px">People stuck between Growth Track steps (or finished without picking a team). Contact them this week, then mark contacted or dismiss. Sorted overdue first.</p>
+        <div id="gtContactList"></div>
+      </div>
+    </details>
     <div class="card">
       <h2>Growth Track by month <span class="pill">started vs. finished all 3 steps · by start month</span></h2>
       <div class="chartbox short"><canvas id="chGT"></canvas></div>
@@ -1400,7 +1409,7 @@ async function renderGT(){
   if(my!==gtRenderToken) return;
   if(error){ toast(error.message,true); return; }
   gtRows=data||[];
-  renderGTStats(); renderGTChart(); renderGTPeople();
+  await syncGTContact(); renderGTStats(); renderGTChart(); renderGTPeople(); renderGTContact();
 }
 function renderGTStats(){
   const started=gtRows.length, done=gtRows.filter(gtDone).length, team=gtRows.filter(r=>r.team_joined).length;
@@ -1443,7 +1452,7 @@ function renderGTPeople(){
   let cd='';
   page.forEach(r=>{
     const ed=canEdit(r.campus_id), open=gtOpen.has(r.id);
-    cd+=`<div class="gt-card"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}${myRole==='admin'&&r.bg_status==='needed'?'<span class="bg-tag never" title="On the Background checks needed list (Volunteers tab)">BG check needed</span>':''}</div>`
+    cd+=`<div class="gt-card" data-id="${r.id}"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}${myRole==='admin'&&r.bg_status==='needed'?'<span class="bg-tag never" title="On the Background checks needed list (Volunteers tab)">BG check needed</span>':''}</div>`
       +`<div class="sub">${esc([r.start_date&&('Started '+gtFmt(r.start_date)),allC&&gtCampusName(r.campus_id),r.team_joined&&(r.teams_served?('On a team: '+r.teams_served.split(',').map(t=>t.trim()).filter(Boolean).join(', ')):'On a team')].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
     if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
       +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
@@ -1460,6 +1469,115 @@ function renderGTPeople(){
   pager.innerHTML=`<button class="btn ghost sm" ${gtPage<=1?'disabled':''} onclick="gtGoPage(${gtPage-1})">← Prev</button>`
     +`<span class="hint" style="margin:0">Page ${gtPage} of ${pages} · ${rows.length} ${rows.length===1?'person':'people'}</span>`
     +`<button class="btn ghost sm" ${gtPage>=pages?'disabled':''} onclick="gtGoPage(${gtPage+1})">Next →</button>`;
+}
+
+/* Who to contact — step-based follow-up on Growth Track (not 15/30/45 timers).
+   A) step1, no step2, due (step1+7) <= end of this week
+   B) step2, no step3, due (step2+7) <= end of this week
+   C) all 3 steps, empty team_preference
+   Skip contacted/dismissed. Form-551600 "ready for onboarding" is left to Apps Script auto-submit. */
+function gtISODate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function gtParseDate(s){ if(!s) return null; const d=fromISO(String(s).slice(0,10)); return isNaN(d)?null:d; }
+function gtNextSunday(from){ const d=new Date(from.getFullYear(),from.getMonth(),from.getDate()); const add=(7-d.getDay())%7; d.setDate(d.getDate()+add); return d; }
+function gtAddDays(d,n){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()+n); return x; }
+/** Derive contact reason + due date, or null if they don’t belong on the list. */
+function gtContactDerive(r, today){
+  today=today||new Date();
+  const end=gtNextSunday(today);
+  const s1=gtParseDate(r.step1_date), s2=gtParseDate(r.step2_date), s3=gtParseDate(r.step3_date);
+  const pref=String(r.team_preference||'').trim();
+  let reason=null, due=null;
+  if(s1 && !s2){ reason='Missing Step 2'; due=gtAddDays(s1,7); }
+  else if(s2 && !s3){ reason='Missing Step 3'; due=gtAddDays(s2,7); }
+  else if(s1 && s2 && s3 && !pref){ reason='Needs team pick'; due=gtAddDays(s3,7); }
+  else return null;
+  if(due > end) return null;
+  return {reason, due: gtISODate(due)};
+}
+async function syncGTContact(only){
+  const today=new Date();
+  const rows=only||gtRows;
+  const patches=[];
+  for(const r of rows){
+    if(r.contact_status==='contacted'||r.contact_status==='dismissed') continue;
+    const d=gtContactDerive(r, today);
+    if(!d){
+      if(r.contact_status==='needed'){
+        patches.push({id:r.id, patch:{contact_status:null, contact_reason:null, contact_due_date:null}});
+      }
+      continue;
+    }
+    if(r.contact_status==='needed' && r.contact_reason===d.reason && r.contact_due_date===d.due) continue;
+    patches.push({id:r.id, patch:{contact_status:'needed', contact_reason:d.reason, contact_due_date:d.due}});
+  }
+  for(const {id,patch} of patches){
+    const {error}=await sb.from('growth_track_people').update(patch).eq('id',id);
+    if(error){ console.warn('contact sync', id, error.message); continue; }
+    const r=gtRows.find(x=>x.id===id); if(r) Object.assign(r, patch);
+  }
+}
+function renderGTContact(){
+  const fold=document.getElementById('gtContactFold');
+  if(!fold) return;
+  const cid=document.getElementById('gtCampusSel').value||'';
+  const todayISO=gtISODate(new Date());
+  const need=gtRows.filter(r=>{
+    if(r.contact_status!=='needed') return false;
+    if(cid && r.campus_id!==cid) return false;
+    return true;
+  });
+  if(!need.length){ fold.style.display='none'; return; }
+  if(!fold.dataset.init){ fold.dataset.init='1'; let o='1'; try{ o=localStorage.getItem('gtContactOpen')||'1'; }catch(e){} fold.open=o!=='0'; }
+  fold.style.display='';
+  document.getElementById('gtContactCount').textContent=need.length;
+  const allC=!cid;
+  need.sort((a,b)=>{
+    const da=a.contact_due_date||'9999', db=b.contact_due_date||'9999';
+    const ao=da<todayISO?0:1, bo=db<todayISO?0:1;
+    if(ao!==bo) return ao-bo;
+    if(da!==db) return da.localeCompare(db);
+    return (a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'});
+  });
+  document.getElementById('gtContactList').innerHTML=need.map(r=>{
+    const overdue=r.contact_due_date && r.contact_due_date<todayISO;
+    const dueLbl=r.contact_due_date?(overdue?'Overdue since '+gtFmt(r.contact_due_date):'Due '+gtFmt(r.contact_due_date)):'';
+    const lastStep=r.step2_date&&!r.step3_date?('Step 2 · '+gtFmt(r.step2_date)):r.step1_date&&!r.step2_date?('Step 1 · '+gtFmt(r.step1_date)):r.step3_date?('Step 3 · '+gtFmt(r.step3_date)):'';
+    const sub=[r.contact_reason, lastStep, dueLbl, r.phone, allC&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
+    const tagCls=overdue?' overdue':' due';
+    const ed=canEdit(r.campus_id);
+    const acts=ed
+      ?`<div class="acts"><button class="btn sm" onclick="markGTContacted('${r.id}')">Mark contacted</button><button class="btn ghost sm" onclick="dismissGTContact('${r.id}')">Dismiss</button><button class="btn ghost sm" onclick="openGTFromContact('${r.id}')">Open</button></div>`
+      :`<div class="acts"><button class="btn ghost sm" onclick="openGTFromContact('${r.id}')">Open</button></div>`;
+    return `<div class="bg-row"><div style="min-width:0"><div class="nm">${esc(r.name)}${r.contact_reason?`<span class="bg-tag${tagCls}">${esc(r.contact_reason)}</span>`:''}</div>`
+      +`<div class="sub">${esc(sub)}</div></div>${acts}</div>`;
+  }).join('');
+}
+function openGTFromContact(id){
+  const r=gtRows.find(x=>x.id===id); if(!r) return;
+  gtOpen.add(id);
+  const show=document.getElementById('gtShowSel'); if(show) show.value='';
+  const search=document.getElementById('gtSearch'); if(search) search.value=r.name||'';
+  gtPage=1; renderGTPeople();
+  setTimeout(()=>{
+    const hit=document.querySelector(`#gtCards .gt-card[data-id="${id}"]`);
+    if(hit) hit.scrollIntoView({block:'center',behavior:'smooth'});
+  },50);
+}
+async function markGTContacted(id){
+  const r=gtRows.find(x=>x.id===id); if(!r||!canEdit(r.campus_id)) return;
+  if(!confirm(`Mark ${r.name} as contacted? They’ll drop off this list.`)) return;
+  const patch={contact_status:'contacted', contacted_at:new Date().toISOString()};
+  const {error}=await sb.from('growth_track_people').update(patch).eq('id',id);
+  if(error){ toast('Not saved: '+error.message,true); return; }
+  Object.assign(r,patch); toast(`${r.name} marked contacted`); renderGTContact();
+}
+async function dismissGTContact(id){
+  const r=gtRows.find(x=>x.id===id); if(!r||!canEdit(r.campus_id)) return;
+  if(!confirm(`Dismiss ${r.name} from Who to contact?`)) return;
+  const patch={contact_status:'dismissed'};
+  const {error}=await sb.from('growth_track_people').update(patch).eq('id',id);
+  if(error){ toast('Not saved: '+error.message,true); return; }
+  Object.assign(r,patch); toast(`${r.name} dismissed`); renderGTContact();
 }
 /* Background checks needed (admin only, shown on Volunteers). Ordering happens on the PCO profile; the app just tracks it.
    Today the list is Growth Track grads (growth_track_people.bg_status); it may grow to cover all volunteers later. */
@@ -1546,7 +1664,10 @@ async function saveGT(id,field,value){
   if(error){ toast('Not saved: '+error.message,true); return; }
   r[field]=value; toast('Saved');
   renderGTStats(); renderGTChart();
-  if(['start_date','step1_date','step2_date','step3_date','team_joined'].includes(field)) renderGTPeople();
+  if(['start_date','step1_date','step2_date','step3_date','team_joined','team_preference'].includes(field)){
+    if(['step1_date','step2_date','step3_date','team_preference'].includes(field)) await syncGTContact([r]);
+    renderGTPeople(); renderGTContact();
+  }
 }
 async function addGTPerson(){
   const vis=campuses.filter(c=>canEdit(c.id));
@@ -1561,14 +1682,14 @@ async function addGTPerson(){
   const {data,error}=await sb.from('growth_track_people').insert({campus_id:cid,name,start_date:start,step1_date:start,source:'manual'}).select().single();
   if(error){ toast(error.message,true); return; }
   gtRows.unshift(data); gtOpen.add(data.id); toast(`Added ${name}`);
-  renderGTStats(); renderGTChart(); renderGTPeople();
+  await syncGTContact([data]); renderGTStats(); renderGTChart(); renderGTPeople(); renderGTContact();
 }
 async function deleteGT(id){
   const r=gtRows.find(x=>x.id===id); if(!r||!confirm(`Delete ${r.name} from Growth Track?`)) return;
   const {error}=await sb.from('growth_track_people').delete().eq('id',id);
   if(error){ toast(error.message,true); return; }
   gtRows=gtRows.filter(x=>x.id!==id); toast('Deleted');
-  renderGTStats(); renderGTChart(); renderGTPeople();
+  renderGTStats(); renderGTChart(); renderGTPeople(); renderGTContact();
 }
 function exportGT(){
   if(!gtShown.length){ toast('Nothing to export in this view'); return; }
