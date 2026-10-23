@@ -9,6 +9,9 @@
  *   3. syncPCOScheduledVolunteers — counts unique, non-declined people
  *      for each service time across every team in each campus folder
  *      (also mirrors a per-team breakdown into the volunteer_teams table)
+ *   4. syncGrowthTrackStep3Forms — when a Growth Track person first has all
+ *      3 steps + a mappable team preference, POST Church Center form 551600
+ *      so team onboarding workflows fire (see GT_STEP3_* section)
  *
  * SETUP:
  * 1. In Supabase → Authentication → Add user:
@@ -1375,4 +1378,336 @@ function bgEmailContent_(templateKey, fullName) {
     + t.paragraphs.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('')
     + '<p>Thanks for serving with us!<br>Zach</p></div>';
   return { subject: t.subject, text: text, html: html };
+}
+
+/* ================= GROWTH TRACK STEP 3 → PCO FORM 551600 =================
+ * When someone first has all 3 Growth Track step dates + a mappable
+ * team_preference + a pco_person_id, POST a submission to Church Center form
+ * 551600 (DC - Growth Track Step 3) so each picked team's onboarding workflow
+ * fires, plus the Columbia Growth Track Complete F/U workflow.
+ *
+ * Rules (Zach-approved 2026-10-23):
+ *   - Strict all-3-steps; skip if form_551600_submission_id already set
+ *   - Skip if they already have any submission on form 551600 in PCO
+ *   - Skip minors (age < 18 from PCO birthdate; no birthdate → proceed, log)
+ *   - Skip prefs marked "WF's Added"; skip people with no mappable teams
+ *   - Always check follow-up option 11178283
+ *   - Phone optional from the GT row
+ *
+ * Run manually: syncGrowthTrackStep3Forms()           // live submit
+ *               dryRunGrowthTrackStep3Forms()         // log only, no POST
+ * Attach a time-driven trigger later (do NOT create until Zach says so), e.g.
+ *   ScriptApp.newTrigger('syncGrowthTrackStep3Forms').timeBased().everyHours(6).create();
+ * Or add syncGrowthTrackStep3Forms() to installEmailReportTriggers once approved.
+ */
+const GT_STEP3_FORM_ID = '551600';
+const GT_STEP3_FIELD_PHONE = '4284743';
+const GT_STEP3_FIELD_TEAMS = '4284740';
+const GT_STEP3_FIELD_FOLLOWUP = '10116995';
+const GT_STEP3_OPTION_FOLLOWUP = '11178283';
+
+/** Form-option label → FormFieldOption id for field 4284740. */
+const GT_STEP3_TEAM_OPTIONS = {
+  'Greeter': '4657995',
+  'DK Elementary (Pre-K - 5th Grade)': '4657999',
+  'Connection Team (Admin)': '10790272',
+  'Creative (Graphics/Media)': '4657996',
+  'Outreach': '10790273',
+  'Events': '10790274',
+  'Parking': '10790275',
+  'LifeGroup Leader': '10790382',
+  'Audio/Visual/Lighting': '4657997',
+  'Music (Band/Vocals)': '4657994',
+  'DK Nursery/Toddler (0 - 3)': '10790383',
+  'Youth (Middle/High School)': '4658000',
+  'PitCrew (Facilities)': '4657998',
+  'Growth Track': '10790278',
+  'Prayer': '10790279',
+  'Safety': '10790280',
+  'Social Media': '11178070',
+  'Photo/Video': '11178071',
+  'Usher': '11178072',
+  'Connect Center': '11178110'
+};
+
+/**
+ * Alias regex (Apps Script RegExp) → option label. More specific first.
+ * Door Greeter / Street to Seat / S2S / Greeting all map to Greeter.
+ */
+const GT_STEP3_TEAM_ALIASES = [
+  { re: /connect(?:ion)?s?\s*team\s*admin|connect(?:ion)?s?\s*team/i, label: 'Connection Team (Admin)' },
+  { re: /connect\s*ctr|connect\s*center/i, label: 'Connect Center' },
+  { re: /door\s*greeter|street\s*to\s*seat(?:\s*\(greeting\))?|\bs2s\b|greeting/i, label: 'Greeter' },
+  { re: /\bgreeter\b/i, label: 'Greeter' },
+  { re: /dk\s*nurs|nurs(?:ery)?\/?toddler|\btoddler\b|\bnursery\b/i, label: 'DK Nursery/Toddler (0 - 3)' },
+  { re: /dk\s*elem|elementry|elementary|\bkids\b/i, label: 'DK Elementary (Pre-K - 5th Grade)' },
+  { re: /life\s*groups?\s*(?:host|leader)?|\blg\s*host\b|lifegroup/i, label: 'LifeGroup Leader' },
+  { re: /photo\/?\s*vid|capture\s*team/i, label: 'Photo/Video' },
+  { re: /social\s*media|\bsocials\b/i, label: 'Social Media' },
+  { re: /audio\/?visual\/?lighting|\bavl?\b|\baudio\b|\blighting\b|\bproduction\b/i, label: 'Audio/Visual/Lighting' },
+  { re: /pit\s*crews?|facilities/i, label: 'PitCrew (Facilities)' },
+  { re: /creative|graphics/i, label: 'Creative (Graphics/Media)' },
+  { re: /music|band|vocals?/i, label: 'Music (Band/Vocals)' },
+  { re: /growth\s*track/i, label: 'Growth Track' },
+  { re: /outreach(?:es)?/i, label: 'Outreach' },
+  { re: /\bevents?\b/i, label: 'Events' },
+  { re: /parking/i, label: 'Parking' },
+  { re: /prayer/i, label: 'Prayer' },
+  { re: /safety/i, label: 'Safety' },
+  { re: /\busher\b/i, label: 'Usher' },
+  { re: /youth|middle\/?high|6-12/i, label: 'Youth (Middle/High School)' }
+];
+
+function dryRunGrowthTrackStep3Forms() {
+  return syncGrowthTrackStep3Forms({ dryRun: true });
+}
+
+/** Live submit for eligible people who do not yet have form_551600_submission_id. */
+function syncGrowthTrackStep3Forms(opts) {
+  opts = opts || {};
+  var dryRun = !!opts.dryRun;
+  var token = sbSignIn_();
+  var rows = gtStep3FetchEligible_(token);
+  var alreadyOnForm = gtStep3ExistingSubmitters_();
+  var summary = { dryRun: dryRun, scanned: rows.length, submitted: 0, skipped: 0, errors: 0, details: [] };
+
+  rows.forEach(function (r) {
+    var decision = gtStep3Decide_(r, alreadyOnForm);
+    if (!decision.wouldSubmit) {
+      summary.skipped++;
+      summary.details.push({ name: r.name, action: 'skip', reasons: decision.reasons, mapped: decision.mapped });
+      Logger.log('GT Step3 SKIP ' + r.name + ' — ' + decision.reasons.join(', '));
+      return;
+    }
+    if (dryRun) {
+      summary.submitted++; // "would submit" count
+      summary.details.push({ name: r.name, action: 'would_submit', mapped: decision.mapped, optionIds: decision.optionIds });
+      Logger.log('GT Step3 WOULD SUBMIT ' + r.name + ' → ' + decision.mapped.join('; '));
+      return;
+    }
+    try {
+      var subId = submitGrowthTrackStep3Form_(r, decision.optionIds);
+      gtStep3Stamp_(token, r.id, subId);
+      alreadyOnForm[String(r.pco_person_id)] = true;
+      summary.submitted++;
+      summary.details.push({ name: r.name, action: 'submitted', submissionId: subId, mapped: decision.mapped });
+      Logger.log('GT Step3 SUBMITTED ' + r.name + ' submission=' + subId);
+    } catch (err) {
+      summary.errors++;
+      summary.details.push({ name: r.name, action: 'error', error: String(err && err.message || err) });
+      Logger.log('GT Step3 ERROR ' + r.name + ': ' + err);
+    }
+  });
+
+  Logger.log('GT Step3 done dryRun=' + dryRun +
+    ' scanned=' + summary.scanned +
+    ' submitted=' + summary.submitted +
+    ' skipped=' + summary.skipped +
+    ' errors=' + summary.errors);
+  return summary;
+}
+
+/** Eligible = all 3 dates, non-empty team_preference, pco id, not yet stamped. */
+function gtStep3FetchEligible_(token) {
+  var path = '/rest/v1/growth_track_people'
+    + '?select=id,name,phone,email,birth_date,pco_person_id,step1_date,step2_date,step3_date,team_preference,form_551600_submission_id'
+    + '&step1_date=not.is.null&step2_date=not.is.null&step3_date=not.is.null'
+    + '&team_preference=not.is.null'
+    + '&form_551600_submission_id=is.null'
+    + '&order=step3_date.asc,name';
+  var res = UrlFetchApp.fetch(SUPABASE_URL + path, {
+    headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + token },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() >= 300) throw new Error('Supabase GT fetch: ' + res.getContentText().slice(0, 300));
+  var rows = JSON.parse(res.getContentText() || '[]');
+  return rows.filter(function (r) { return String(r.team_preference || '').trim(); });
+}
+
+/** person_id → true for anyone who already has a submission on form 551600. */
+function gtStep3ExistingSubmitters_() {
+  var map = {}, next = '/people/v2/forms/' + GT_STEP3_FORM_ID + '/form_submissions?per_page=100&order=-created_at', pages = 0;
+  while (next) {
+    if (++pages > 50) throw new Error('GT Step3: too many form_submission pages');
+    var d = pcoGet_(next);
+    (d.data || []).forEach(function (s) {
+      var pid = s.relationships && s.relationships.person && s.relationships.person.data && s.relationships.person.data.id;
+      if (pid) map[String(pid)] = true;
+    });
+    next = d.links && d.links.next ? d.links.next : null;
+  }
+  return map;
+}
+
+function gtStep3Decide_(r, alreadyOnForm) {
+  var reasons = [], mapped = [], optionIds = [];
+  var pref = String(r.team_preference || '');
+  var pco = String(r.pco_person_id || '').trim();
+  var parsed = gtStep3MapPreference_(pref);
+  mapped = parsed.mapped;
+  optionIds = parsed.optionIds;
+
+  if (!/^\d+$/.test(pco)) reasons.push('no_pco');
+  if (pco && alreadyOnForm[pco]) reasons.push('already_submitted');
+  if (parsed.wfAdded) reasons.push('wf_added_marker');
+  if (!mapped.length) reasons.push('no_mappable_teams');
+
+  var ageInfo = gtStep3Age_(r, pco);
+  if (ageInfo.under18) reasons.push('minor_age_' + ageInfo.age);
+  if (ageInfo.noBirthdate) reasons.push('no_birthdate');
+
+  var wouldSubmit = reasons.indexOf('no_pco') < 0
+    && reasons.indexOf('already_submitted') < 0
+    && reasons.indexOf('wf_added_marker') < 0
+    && reasons.indexOf('no_mappable_teams') < 0
+    && !ageInfo.under18;
+
+  return {
+    wouldSubmit: wouldSubmit,
+    reasons: reasons.length ? reasons : ['ok'],
+    mapped: mapped,
+    optionIds: optionIds,
+    unmapped: parsed.unmapped,
+    age: ageInfo.age,
+    noBirthdate: ageInfo.noBirthdate
+  };
+}
+
+function gtStep3Age_(r, pco) {
+  var bd = r.birth_date ? String(r.birth_date).slice(0, 10) : '';
+  if (!bd && pco && /^\d+$/.test(pco)) {
+    try {
+      var a = pcoGet_('/people/v2/people/' + pco).data.attributes || {};
+      bd = (a.birthdate || '').slice(0, 10);
+    } catch (err) { /* ignore */ }
+  }
+  if (!bd) return { age: null, under18: false, noBirthdate: true };
+  var parts = bd.split('-');
+  if (parts.length !== 3) return { age: null, under18: false, noBirthdate: true };
+  var born = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  var now = new Date();
+  var age = now.getFullYear() - born.getFullYear();
+  var m = now.getMonth() - born.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < born.getDate())) age--;
+  return { age: age, under18: age < 18, noBirthdate: false };
+}
+
+function gtStep3MapPreference_(pref) {
+  var wfAdded = /wf'?s?\s*added/i.test(pref);
+  var cleaned = String(pref || '').replace(/wf'?s?\s*added/ig, ' ');
+  var parts = cleaned.split(/[,&+/]|\band\b/i).map(function (p) {
+    return p.replace(/^in\s+order:\s*/i, '').replace(/^[\s.\-–—]+|[\s.\-–—]+$/g, '');
+  }).filter(Boolean);
+
+  var mapped = [], optionIds = [], unmapped = [], seen = {};
+  function addLabel(label) {
+    if (!label || seen[label]) return;
+    var id = GT_STEP3_TEAM_OPTIONS[label];
+    if (!id) return;
+    seen[label] = true;
+    mapped.push(label);
+    optionIds.push(id);
+  }
+  parts.forEach(function (part) {
+    if (/already\s*serves|left\s*gwp|not\s*a\s*growth\s*track\s*option|shepherding|10-*-*8\s*collective/i.test(part)) {
+      unmapped.push(part);
+      return;
+    }
+    var hit = null;
+    for (var i = 0; i < GT_STEP3_TEAM_ALIASES.length; i++) {
+      if (GT_STEP3_TEAM_ALIASES[i].re.test(part)) { hit = GT_STEP3_TEAM_ALIASES[i].label; break; }
+    }
+    if (hit) addLabel(hit);
+    else unmapped.push(part);
+  });
+  // Greedy fallback on the whole string when splits found nothing
+  if (!mapped.length && cleaned.trim()) {
+    GT_STEP3_TEAM_ALIASES.forEach(function (a) {
+      if (a.re.test(cleaned)) addLabel(a.label);
+    });
+    if (mapped.length) unmapped = [];
+  }
+  return { mapped: mapped, optionIds: optionIds, unmapped: unmapped, wfAdded: wfAdded };
+}
+
+/**
+ * POST one FormSubmission for this GT person. Returns the new submission id.
+ * Always includes follow-up option 11178283. One FormSubmissionValue per team option.
+ */
+function submitGrowthTrackStep3Form_(person, optionIds) {
+  if (!optionIds || !optionIds.length) throw new Error('no option ids');
+  var pco = String(person.pco_person_id);
+  var included = [];
+  var phone = gtStep3NormalizePhone_(person.phone);
+  if (phone) {
+    included.push({
+      type: 'FormSubmissionValue',
+      attributes: { form_field_id: GT_STEP3_FIELD_PHONE, value: phone }
+    });
+  }
+  optionIds.forEach(function (oid) {
+    included.push({
+      type: 'FormSubmissionValue',
+      attributes: { form_field_id: GT_STEP3_FIELD_TEAMS, value: String(oid) }
+    });
+  });
+  included.push({
+    type: 'FormSubmissionValue',
+    attributes: { form_field_id: GT_STEP3_FIELD_FOLLOWUP, value: GT_STEP3_OPTION_FOLLOWUP }
+  });
+
+  var body = {
+    data: {
+      type: 'FormSubmission',
+      attributes: { person_id: pco }
+    },
+    included: included
+  };
+  var res = pcoPost_('/people/v2/forms/' + GT_STEP3_FORM_ID + '/form_submissions', body);
+  var id = res && res.data && res.data.id;
+  if (!id) throw new Error('PCO form submit returned no id: ' + JSON.stringify(res).slice(0, 300));
+  return String(id);
+}
+
+function gtStep3NormalizePhone_(phone) {
+  var s = String(phone || '').trim();
+  if (!s || /^n\/?a$/i.test(s) || /email/i.test(s) || !/\d/.test(s)) return '';
+  var digits = s.replace(/\D/g, '');
+  if (digits.length === 11 && digits.charAt(0) === '1') digits = digits.slice(1);
+  if (digits.length !== 10) return s; // pass through oddly formatted but non-empty
+  return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+}
+
+function gtStep3Stamp_(token, gtId, submissionId) {
+  var res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/growth_track_people?id=eq.' + gtId, {
+    method: 'patch', contentType: 'application/json',
+    headers: {
+      apikey: ANON_KEY, Authorization: 'Bearer ' + token,
+      Prefer: 'return=minimal'
+    },
+    payload: JSON.stringify({
+      form_551600_submission_id: String(submissionId),
+      form_551600_submitted_at: new Date().toISOString()
+    }),
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() >= 300) throw new Error('Stamp failed: ' + res.getContentText().slice(0, 300));
+}
+
+function pcoPost_(path, body) {
+  var p = PropertiesService.getScriptProperties();
+  var url = /^https:\/\//.test(path) ? path : 'https://api.planningcenteronline.com' + path;
+  var res = UrlFetchApp.fetch(url, {
+    method: 'post', contentType: 'application/json',
+    headers: {
+      Authorization: 'Basic ' + Utilities.base64Encode(
+        p.getProperty('PCO_APP_ID') + ':' + p.getProperty('PCO_SECRET')),
+      Accept: 'application/json'
+    },
+    payload: JSON.stringify(body),
+    muteHttpExceptions: true
+  });
+  var code = res.getResponseCode(), text = res.getContentText();
+  if (code >= 300) throw new Error('PCO POST ' + code + ': ' + text.slice(0, 400));
+  return text ? JSON.parse(text) : null;
 }
