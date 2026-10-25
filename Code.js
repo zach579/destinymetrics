@@ -95,6 +95,18 @@ const YOUTH_BACKFILL_NEXT_PROPERTY = 'PCO_YOUTH_BACKFILL_NEXT_WEEK';
 const YOUTH_BACKFILL_TOTAL_PROPERTY = 'PCO_YOUTH_BACKFILL_TOTAL_WEEKS';
 const REPORT_RECIPIENTS_PROPERTY = 'REPORT_RECIPIENTS';
 const ALERT_RECIPIENTS_PROPERTY = 'ALERT_RECIPIENTS';
+// Always added to the weekly Sunday/Thursday reports, on top of REPORT_RECIPIENTS.
+const EXTRA_REPORT_RECIPIENTS = ['steven.m@destinychurchtn.com', 'jonathan@destinychurchtn.com'];
+
+function reportRecipients_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(REPORT_RECIPIENTS_PROPERTY) || '';
+  var seen = {}, out = [];
+  raw.split(',').concat(EXTRA_REPORT_RECIPIENTS).forEach(function(e) {
+    e = String(e).trim();
+    if (e && !seen[e.toLowerCase()]) { seen[e.toLowerCase()] = true; out.push(e); }
+  });
+  return out.join(',');
+}
 const FORM_STATUS_HEADER = 'CampusMetrics Status';
 const SUNDAY_REPORT_HOUR = 14;    // 2pm
 const THURSDAY_REPORT_HOUR = 8;   // 8am
@@ -962,8 +974,7 @@ function sendMetricsReport_(reportName, includeService) {
   }, {sanctuary:0, kids:0, previousSanctuary:0, previousKids:0,
       attendance:0, previousAttendance:0, volunteers:0, salvations:0, baptisms:0, missing:0});
 
-  var recipients = PropertiesService.getScriptProperties()
-    .getProperty(REPORT_RECIPIENTS_PROPERTY);
+  var recipients = reportRecipients_();
   if (!recipients || !recipients.trim()) {
     throw new Error('Missing Script Property ' + REPORT_RECIPIENTS_PROPERTY + '. Add one or more comma-separated email addresses.');
   }
