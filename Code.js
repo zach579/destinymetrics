@@ -34,7 +34,7 @@
  *      syncPCOKids   → Time-driven → Every hour  (it only acts on Sundays 11am–8pm)
  *      Run installEmailReportTriggers() once to create the Sunday 1pm
  *      scheduled-volunteer sync, Sunday 2pm missing-entry check and report,
- *      and Thursday 8am report in the script's configured time zone.
+ *      and Thursday 10-11am report in the script's configured time zone.
  * 6. Run backfillPCOScheduledVolunteers() once to populate one year of
  *    volunteer history. It continues automatically in small batches.
  * 7. Run backfillPCOYouth() once to populate one year of Wednesday youth
@@ -109,7 +109,7 @@ function reportRecipients_() {
 }
 const FORM_STATUS_HEADER = 'CampusMetrics Status';
 const SUNDAY_REPORT_HOUR = 14;    // 2pm
-const THURSDAY_REPORT_HOUR = 8;   // 8am
+const THURSDAY_REPORT_HOUR = 10;  // fires 10-11am so it lands by 11am
 
 /* ================= USHER FORM → SUPABASE ================= */
 
@@ -1058,7 +1058,7 @@ function installEmailReportTriggers() {
     .onWeekDay(ScriptApp.WeekDay.THURSDAY).atHour(THURSDAY_REPORT_HOUR).create();
   Logger.log('Automation triggers installed in ' + Session.getScriptTimeZone() +
     ': Check-Ins hourly on Sundays/Wednesdays, scheduled volunteers Sunday around 1pm, ' +
-    'missing-entry check and Sunday report around 2pm, and Thursday report around 8am.');
+    'missing-entry check and Sunday report around 2pm, and Thursday report between 10 and 11am.');
 }
 
 function reportNumber_(row, metric) {
@@ -1120,6 +1120,7 @@ function syncNextSteps() {
     nextStepsReport_(true, result.rows, null, result.meta);
     Logger.log('Next steps synced: ' + result.rows + ' rows (' + result.summary + ')');
     try { ensureGrowthTrackStep3Trigger_(); } catch (e3) { Logger.log('GT Step3 trigger ensure: ' + e3); }
+    try { ensureThursdayReportTrigger_(); } catch (e4) { Logger.log('Thursday report trigger ensure: ' + e4); }
   } catch (err) {
     const msg = String(err && err.message ? err.message : err);
     try { nextStepsReport_(false, null, msg, null); } catch (e2) { Logger.log('Could not record failure: ' + e2); }
@@ -1471,6 +1472,21 @@ const GT_STEP3_TEAM_ALIASES = [
 ];
 
 /** Create (or replace) the every-6-hours form 551600 sync trigger. Safe to re-run. */
+
+/** Idempotent: (re)install the Thursday report trigger at THURSDAY_REPORT_HOUR once per hour change. Called from syncNextSteps. */
+function ensureThursdayReportTrigger_() {
+  var props = PropertiesService.getScriptProperties();
+  var want = String(THURSDAY_REPORT_HOUR);
+  var triggers = ScriptApp.getProjectTriggers().filter(function (t) {
+    return t.getHandlerFunction() === 'sendWednesdayMetricsEmail';
+  });
+  if (props.getProperty('THURSDAY_REPORT_TRIGGER_HOUR') === want && triggers.length === 1) return;
+  triggers.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('sendWednesdayMetricsEmail').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.THURSDAY).atHour(THURSDAY_REPORT_HOUR).create();
+  props.setProperty('THURSDAY_REPORT_TRIGGER_HOUR', want);
+  Logger.log('Thursday report trigger reinstalled at hour ' + want + ' (' + Session.getScriptTimeZone() + ').');
+}
 
 /** Idempotent: create the 6-hour form 551600 trigger if missing. Called from syncNextSteps. */
 function ensureGrowthTrackStep3Trigger_() {
