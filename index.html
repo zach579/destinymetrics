@@ -216,6 +216,14 @@
     <div class="err" id="liErr"></div>
     <p class="hint" style="margin-top:6px">Accounts are created by your admin.</p>
   </div>
+  <div class="box" id="setPwBox" style="display:none">
+    <h1>Destiny<span>Metrics</span></h1>
+    <p>Set your password</p>
+    <input type="password" id="spPass" placeholder="New password (8+ characters)" autocomplete="new-password">
+    <input type="password" id="spPass2" placeholder="Confirm password" autocomplete="new-password" onkeydown="if(event.key==='Enter')setPassword()">
+    <button class="btn" id="spBtn" onclick="setPassword()">Save password</button>
+    <div class="err" id="spErr"></div>
+  </div>
 </div>
 
 <header style="display:none" id="topbar">
@@ -439,9 +447,9 @@
   <section id="view-gt" style="display:none">
     <div class="cards" id="gtStats"></div>
     <details class="fold" id="gtContactFold" style="display:none" ontoggle="try{localStorage.setItem('gtContactOpen',this.open?'1':'0')}catch(e){}">
-      <summary>Who to contact<span class="pill" id="gtContactCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">missing the next step · this week or overdue</span></summary>
+      <summary>Who to contact<span class="pill" id="gtContactCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">missing a step · this week or overdue</span></summary>
       <div class="card">
-        <p class="hint" style="margin:0 0 8px">People with a Growth Track class this coming Sunday that they still need (Step 1 = 1st Sunday, Step 2 = 2nd, Step 3 = 3rd), plus anyone who finished without picking a team. Text them, then mark contacted or dismiss.</p>
+        <p class="hint" style="margin:0 0 8px">Anyone still missing a Growth Track step when a class is coming up this Sunday (Step 1 = 1st Sunday, Step 2 = 2nd, Step 3 = 3rd; steps can be taken in any order), plus anyone who finished all 3 without picking a team. Text them, then mark contacted or dismiss.</p>
         <div id="gtContactList"></div>
       </div>
     </details>
@@ -568,14 +576,50 @@ function boot(){
     showLoginError('The app could not load its secure connection. Check your internet connection and reload.');
     return;
   }
+  // One-time setup / reset links land here with type=recovery or type=invite in the URL.
+  const authUrl=location.hash+'&'+location.search;
+  if(/[#&?]type=(recovery|invite)\b/.test(authUrl)) pwSetupMode=true;
+  if(/[#&?]error_description=/.test(authUrl)){
+    const m=authUrl.match(/error_description=([^&]*)/);
+    showLoginError('That setup link has expired or was already used. Ask your admin for a new one.'+(m?' ('+decodeURIComponent(m[1].replace(/\+/g,' '))+')':''));
+  }
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   sb.auth.getSession().then(({data})=>{
-    if(data.session) start(data.session.user);
+    if(data.session && pwSetupMode) showSetPassword();
+    else if(data.session) start(data.session.user);
   }).catch(()=>showLoginError('Could not connect. Check your internet connection and try again.'));
   sb.auth.onAuthStateChange((ev,session)=>{
-    if(ev==='SIGNED_IN' && session && !me) start(session.user);
+    if(ev==='PASSWORD_RECOVERY'){ pwSetupMode=true; showSetPassword(); return; }
+    if(ev==='SIGNED_IN' && session && !me && !pwSetupMode) start(session.user);
     if(ev==='SIGNED_OUT') location.reload();
   });
+}
+let pwSetupMode=false;
+function showSetPassword(){
+  document.querySelector('#login .box').style.display='none';
+  document.getElementById('setPwBox').style.display='';
+  document.getElementById('spPass').focus();
+}
+async function setPassword(){
+  const btn=document.getElementById('spBtn'), err=document.getElementById('spErr');
+  const p1=document.getElementById('spPass').value, p2=document.getElementById('spPass2').value;
+  err.textContent='';
+  if(p1.length<8){ err.textContent='Use at least 8 characters.'; return; }
+  if(p1!==p2){ err.textContent='The two passwords don’t match.'; return; }
+  btn.disabled=true;
+  try{
+    const {data,error}=await sb.auth.updateUser({password:p1});
+    if(error){ err.textContent=error.message; return; }
+    pwSetupMode=false;
+    history.replaceState(null,'',location.pathname);
+    document.getElementById('setPwBox').style.display='none';
+    document.querySelector('#login .box').style.display='';
+    if(data.user && !me) start(data.user);
+  }catch(e){
+    err.textContent='Could not connect. Check your internet connection and try again.';
+  }finally{
+    btn.disabled=false;
+  }
 }
 async function signIn(){
   const btn=document.getElementById('liBtn'), err=document.getElementById('liErr');
@@ -932,19 +976,24 @@ async function renderDash(){
 
   const attendKeys=METRICS.filter(m=>m.attend).map(m=>m.key);
   const sum=(row,keys)=>keys.reduce((a,k)=>a+(row[k]||0),0);
-  // Wednesday youth ("Youth (Wed)") services are excluded from all the weekend/Sunday figures
-  // below; they appear only in the separate Wednesday Service Summary card.
+  // Wednesday youth ("Youth (Wed)") services are excluded from the weekend/Sunday attendance and
+  // volunteer figures below (they have their own Wednesday Service Summary card). Salvations are the
+  // exception: salvTotal counts every service, Wednesday youth included.
   const wedSvcIds=new Set(campuses.flatMap(c=>c.services)
     .filter(s=>/\(wed(nesday)?\)/i.test(s.label)).map(s=>s.id));
   const wTotal=(week,keys,campusId)=>rows
     .filter(r=>r.week===week && !wedSvcIds.has(r.service_id) && (!campusId || svcById[r.service_id].campus.id===campusId))
     .reduce((a,r)=>a+sum(r,keys),0);
+  // Salvations count every service, Wednesday youth included (Youth (Wed) salvations are entered in Enter Counts).
+  const salvTotal=(week,campusId)=>rows
+    .filter(r=>r.week===week && (!campusId || svcById[r.service_id].campus.id===campusId))
+    .reduce((a,r)=>a+(r.salvations||0),0);
 
   const totals=weeks.map(w=>wTotal(w,attendKeys,cid));
   const thisW=totals[totals.length-1], lastW=totals[totals.length-2]||0;
   const nonzero=totals.filter(t=>t>0);
   const avg=nonzero.length?Math.round(nonzero.reduce((a,b)=>a+b,0)/nonzero.length):0;
-  const salv=weeks.reduce((a,w)=>a+wTotal(w,['salvations'],cid),0);
+  const salv=weeks.reduce((a,w)=>a+salvTotal(w,cid),0);
   const bapt=weeks.reduce((a,w)=>a+wTotal(w,['baptisms'],cid),0);
   const vol=wTotal(weeks[weeks.length-1],['volunteers'],cid);
   const volVals=weeks.map(w=>wTotal(w,['volunteers'],cid)).filter(v=>v>0);
@@ -968,7 +1017,7 @@ async function renderDash(){
   }))},{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
 
   mkChart('chDecisions','line',{labels,datasets:[
-    {label:'Salvations',data:weeks.map(w=>wTotal(w,['salvations'],cid)),borderColor:'#4f46e5',backgroundColor:'#4f46e5',tension:.3},
+    {label:'Salvations',data:weeks.map(w=>salvTotal(w,cid)),borderColor:'#4f46e5',backgroundColor:'#4f46e5',tension:.3},
     {label:'Baptisms',data:weeks.map(w=>wTotal(w,['baptisms'],cid)),borderColor:'#059669',backgroundColor:'#059669',tension:.3}
   ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
 
@@ -998,7 +1047,7 @@ async function renderDash(){
     html+=`<tr><td class="campus">${fmtWeek(w)}</td>
       <td style="text-align:center">${fmt(wTotal(w,attendKeys,cid))}</td>
       <td style="text-align:center">${fmt(wTotal(w,['volunteers'],cid))}</td>
-      <td style="text-align:center">${fmt(wTotal(w,['salvations'],cid))}</td>
+      <td style="text-align:center">${fmt(salvTotal(w,cid))}</td>
       <td style="text-align:center">${fmt(wTotal(w,['baptisms'],cid))}</td></tr>`;
   });
   document.getElementById('summaryTable').innerHTML=html+'</tbody>';
@@ -1020,16 +1069,20 @@ async function renderDash(){
         .reduce((a,r)=>a+sum(r,attendKeys),0);
       const wedHasRow=(week,campusId)=>rows
         .some(r=>r.week===week && wedSvcIds.has(r.service_id) && svcById[r.service_id].campus.id===campusId);
+      const wedSalv=(week)=>rows
+        .filter(r=>r.week===week && wedSvcIds.has(r.service_id) && wedCampuses.some(c=>c.id===svcById[r.service_id].campus.id))
+        .reduce((a,r)=>a+(r.salvations||0),0);
       const showTotal=wedCampuses.length>1;
       let wh='<thead><tr><th>Week</th>'
         +wedCampuses.map(c=>`<th style="text-align:center">${esc(c.name)}</th>`).join('')
-        +(showTotal?'<th style="text-align:center">Total</th>':'')+'</tr></thead><tbody>';
+        +(showTotal?'<th style="text-align:center">Total</th>':'')+'<th style="text-align:center">Youth salvations</th></tr></thead><tbody>';
       wedPast.slice().reverse().forEach(w=>{
         const vals=wedCampuses.map(c=>({has:wedHasRow(w,c.id),v:wedAt(w,c.id)}));
         const tot=vals.reduce((a,b)=>a+b.v,0);
         wh+=`<tr><td class="campus">${fmtWed(w)}</td>`
           +vals.map(x=>`<td style="text-align:center">${x.has?fmt(x.v):'—'}</td>`).join('')
-          +(showTotal?`<td style="text-align:center">${fmt(tot)}</td>`:'')+'</tr>';
+          +(showTotal?`<td style="text-align:center">${fmt(tot)}</td>`:'')
+          +`<td style="text-align:center">${vals.some(x=>x.has)?fmt(wedSalv(w)):'—'}</td></tr>`;
       });
       wedTable.innerHTML=wh+'</tbody>';
     }
@@ -1472,10 +1525,12 @@ function renderGTPeople(){
 }
 
 /* Who to contact — step-based follow-up on Growth Track (not 15/30/45 timers).
-   A) step1, no step2, due (step1+7) <= end of this week
-   B) step2, no step3, due (step2+7) <= end of this week
-   C) all 3 steps, empty team_preference
-   Skip contacted/dismissed. Form-551600 "ready for onboarding" is left to Apps Script auto-submit. */
+   Steps can be taken in any order (Step N is taught on the Nth Sunday of each month).
+   A) missing any step -> due at the next Growth Track Sunday (1st/2nd/3rd Sunday, on or after today),
+      whatever step that is; reason lists every missing step ("Missing Step 1, Step 3").
+      People with no step dates at all are included only if they have a start_date in the last 90 days.
+   B) all 3 steps, empty team_preference -> "Needs team pick", due step3+7
+   Only due <= end of this week. Skip contacted/dismissed. Form-551600 "ready for onboarding" is left to Apps Script auto-submit. */
 function gtISODate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function gtParseDate(s){ if(!s) return null; const d=fromISO(String(s).slice(0,10)); return isNaN(d)?null:d; }
 function gtNextSunday(from){ const d=new Date(from.getFullYear(),from.getMonth(),from.getDate()); const add=(7-d.getDay())%7; d.setDate(d.getDate()+add); return d; }
@@ -1489,6 +1544,8 @@ function gtNextClass(n, from){
   if(c<f) c=gtNthSunday(f.getFullYear(),f.getMonth()+1,n);
   return c;
 }
+/** Next Growth Track Sunday (1st, 2nd or 3rd Sunday of a month) on or after `from`. */
+function gtNextAnyClass(from){ return [1,2,3].map(n=>gtNextClass(n,from)).reduce((a,b)=>a<b?a:b); }
 /** Derive contact reason + due date (= their next class), or null if they don’t belong on the list. */
 function gtContactDerive(r, today){
   today=today||new Date();
@@ -1498,9 +1555,15 @@ function gtContactDerive(r, today){
   const pref=String(r.team_preference||'').trim();
   const later=(a,b)=>a>b?a:b;
   let reason=null, due=null;
-  if(s1 && !s2){ reason='Missing Step 2'; due=gtNextClass(2, later(t0, gtAddDays(s1,1))); }
-  else if(s2 && !s3){ reason='Missing Step 3'; due=gtNextClass(3, later(t0, gtAddDays(s2,1))); }
-  else if(s1 && s2 && s3 && !pref){ reason='Needs team pick'; due=gtAddDays(s3,7); }
+  const missing=[s1,s2,s3].map((d,i)=>d?null:'Step '+(i+1)).filter(Boolean);
+  if(missing.length){
+    if(missing.length===3){
+      const st=gtParseDate(r.start_date);
+      if(!st || st<gtAddDays(t0,-90)) return null;   // no steps and no recent start: not a live prospect
+    }
+    reason='Missing '+missing.join(', '); due=gtNextAnyClass(t0);
+  }
+  else if(!pref){ reason='Needs team pick'; due=gtAddDays(s3,7); }
   else return null;
   if(due > end) return null;
   return {reason, due: gtISODate(due)};
@@ -1692,7 +1755,7 @@ async function addGTPerson(){
   if(!canEdit(cid)){ toast('You don’t have access to that campus',true); return; }
   const name=(prompt('Name')||'').trim(); if(!name) return;
   const start=iso(sundayOf(new Date()));
-  const {data,error}=await sb.from('growth_track_people').insert({campus_id:cid,name,start_date:start,step1_date:start,source:'manual'}).select().single();
+  const {data,error}=await sb.from('growth_track_people').insert({campus_id:cid,name,start_date:start,source:'manual'}).select().single();
   if(error){ toast(error.message,true); return; }
   gtRows.unshift(data); gtOpen.add(data.id); toast(`Added ${name}`);
   await syncGTContact([data]); renderGTStats(); renderGTChart(); renderGTPeople(); renderGTContact();
@@ -1813,7 +1876,7 @@ const SOURCES={
     links:[{label:'Open Enter Counts to see the numbers behind a week', view:'entry'}]},
   decisions:{title:'Salvations & baptisms', from:'Usher reports',
     crumb:['Usher Form','“Salvations” and “Baptisms” answers','DestinyMetrics','Enter Counts'],
-    text:'What ushers submit on the Usher Form after each weekend service, added up by week. Wednesday youth rows are not included on the Dashboard — the Next Steps tab counts every service.',
+    text:'What ushers submit on the Usher Form after each weekend service, added up by week. Wednesday youth attendance and volunteers are not included on the Dashboard, but salvations count every service, Wednesday youth included.',
     links:[{label:'Open Enter Counts to see each service’s number', view:'entry'},{label:'Open the Next Steps tab', view:'next'}]},
   summary:{title:'Sunday Service Summary', from:'Usher reports + Planning Center',
     crumb:['Enter Counts','all weekend services for the week','added together'],
