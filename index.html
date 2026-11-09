@@ -1526,8 +1526,8 @@ function renderGTPeople(){
 
 /* Who to contact — step-based follow-up on Growth Track (not 15/30/45 timers).
    Steps can be taken in any order (Step N is taught on the Nth Sunday of each month).
-   A) missing any step -> due at the next Growth Track Sunday (1st/2nd/3rd Sunday, on or after today),
-      whatever step that is; reason lists every missing step ("Missing Step 1, Step 3").
+   A) missing any step -> due at the next Growth Track Sunday whose class is a step they're still missing
+      (1st Sunday = Step 1, 2nd = Step 2, 3rd = Step 3); reason lists every missing step ("Missing Step 1, Step 3").
       People with no step dates at all are included only if they have a start_date in the last 90 days.
    B) all 3 steps, empty team_preference -> "Needs team pick", due step3+7
    Only due <= end of this week. Skip contacted/dismissed. Form-551600 "ready for onboarding" is left to Apps Script auto-submit. */
@@ -1544,24 +1544,24 @@ function gtNextClass(n, from){
   if(c<f) c=gtNthSunday(f.getFullYear(),f.getMonth()+1,n);
   return c;
 }
-/** Next Growth Track Sunday (1st, 2nd or 3rd Sunday of a month) on or after `from`. */
-function gtNextAnyClass(from){ return [1,2,3].map(n=>gtNextClass(n,from)).reduce((a,b)=>a<b?a:b); }
-/** Derive contact reason + due date (= their next class), or null if they don’t belong on the list. */
+/** Next Growth Track Sunday for one of the given missing step numbers (1-3) on or after `from`. */
+function gtNextMissingClass(from, stepNums){ return stepNums.map(n=>gtNextClass(n,from)).reduce((a,b)=>a<b?a:b); }
+/** Derive contact reason + due date (= next class for a step they still need), or null if they don’t belong on the list. */
 function gtContactDerive(r, today){
   today=today||new Date();
   const t0=new Date(today.getFullYear(),today.getMonth(),today.getDate());
   const end=gtNextSunday(today);
   const s1=gtParseDate(r.step1_date), s2=gtParseDate(r.step2_date), s3=gtParseDate(r.step3_date);
   const pref=String(r.team_preference||'').trim();
-  const later=(a,b)=>a>b?a:b;
   let reason=null, due=null;
-  const missing=[s1,s2,s3].map((d,i)=>d?null:'Step '+(i+1)).filter(Boolean);
-  if(missing.length){
-    if(missing.length===3){
+  const missingNums=[s1,s2,s3].map((d,i)=>d?null:i+1).filter(Boolean);
+  const missing=missingNums.map(n=>'Step '+n);
+  if(missingNums.length){
+    if(missingNums.length===3){
       const st=gtParseDate(r.start_date);
       if(!st || st<gtAddDays(t0,-90)) return null;   // no steps and no recent start: not a live prospect
     }
-    reason='Missing '+missing.join(', '); due=gtNextAnyClass(t0);
+    reason='Missing '+missing.join(', '); due=gtNextMissingClass(t0, missingNums);
   }
   else if(!pref){ reason='Needs team pick'; due=gtAddDays(s3,7); }
   else return null;
