@@ -6,8 +6,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#f6f7f9; --card:#ffffff; --ink:#1a202c; --muted:#64748b; --line:#e2e8f0;
-    --accent:#4f46e5; --accent-soft:#eef2ff; --green:#059669; --red:#dc2626;
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1a202c; --muted:#5a6472; --line:#e2e8f0;
+    --accent:#4f46e5; --accent-soft:#eef2ff; --green:#047857; --red:#dc2626;
   }
   *{box-sizing:border-box; margin:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); font-size:14px}
@@ -82,7 +82,7 @@
   .retry-save{display:none}
   .table-scroll{overflow-x:auto; max-width:100%; -webkit-overflow-scrolling:touch}
   .info-btn{display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; margin-left:5px; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--card); color:var(--muted); font:italic 700 11px/1 Georgia,serif; text-transform:none; letter-spacing:0; cursor:pointer; vertical-align:middle; position:relative}
-  .info-btn::after{content:""; position:absolute; inset:-10px}
+  .info-btn::after{content:""; position:absolute; inset:-14px}
   .info-btn:hover,.info-btn:focus-visible,.info-btn[aria-expanded=true]{border-color:var(--accent); color:var(--accent); outline:none}
   .src-pop{position:absolute; z-index:70; width:320px; max-width:calc(100vw - 20px); background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(15,23,42,.18); padding:14px 16px; font-size:13px; line-height:1.45; display:none}
   .src-pop.open{display:block}
@@ -116,7 +116,7 @@
   .seg button{border:0; background:var(--card); padding:6px 12px; font-size:13px; cursor:pointer; color:var(--muted)}
   .seg button.on{background:var(--accent); color:#fff}
   .badge{display:inline-block; min-width:22px; padding:1px 7px; border-radius:11px; font-size:12px; font-weight:700; background:var(--line); color:var(--ink); text-align:center}
-  .badge.red{background:#fee2e2; color:var(--red)}
+  .badge.red{background:#fee2e2; color:#b91c1c}
   .stepb{display:inline-block; padding:2px 7px; margin-right:3px; border-radius:6px; font-size:12px; font-weight:600; background:#f1f5f9; color:var(--muted)}
   .stepb.on{background:#dcfce7; color:#15803d}
   tr.gt-group td{background:var(--accent-soft); font-weight:700; cursor:pointer; padding:8px 6px; font-size:13.5px}
@@ -137,7 +137,7 @@
   .bg-row .acts{display:flex; gap:6px; flex-shrink:0}
   .bg-tag{display:inline-block; font-size:11.5px; font-weight:600; border-radius:20px; padding:1px 8px; margin-left:6px; background:#fef3c7; color:#92400e; vertical-align:1px}
   .bg-tag.never{background:#fee2e2; color:#991b1b}
-  @media(max-width:700px){ .bg-row{flex-wrap:wrap; gap:6px 10px} .bg-row .acts{margin-left:auto} .bg-row .acts .btn.sm{min-height:38px; padding:6px 14px; font-size:14px} }
+  @media(max-width:700px){ .bg-row{flex-wrap:wrap; gap:6px 10px} .bg-row .acts{margin-left:auto} .bg-row .acts .btn.sm{min-height:44px; padding:8px 14px; font-size:14px} }
   .bg-tag.overdue{background:#fee2e2; color:#991b1b}
   .bg-tag.due{background:#e0e7ff; color:#3730a3}
   .gt-group-h{font-weight:700; padding:10px 4px 6px; cursor:pointer; font-size:14px}
@@ -165,17 +165,19 @@
     header h1{font-size:16px; padding:11px 0; flex:1}
     header .who{margin-left:0}
     header .who #whoami{display:none}
-    nav{order:3; width:100%; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; border-top:1px solid var(--line)}
-    nav button{min-height:48px; padding:8px 3px; font-size:12px; line-height:1.15; white-space:normal}
+    nav{order:3; width:100%; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:0; border-top:1px solid var(--line)}
+    nav button{min-height:48px; padding:8px 2px; font-size:11px; line-height:1.15; white-space:normal}
     main{padding:14px 10px 72px}
     .card{padding:12px; margin-bottom:12px}
-    button.btn,button.btn.sm,select,input[type=date],input[type=text],input[type=email],input[type=password]{min-height:44px; font-size:16px}
+    button.btn,button.btn.sm,select,input[type=date],input[type=text],input[type=email],input[type=password],input:not([type]),#menuBtn,.seg button{min-height:44px; font-size:16px}
+    #menuBtn{min-width:44px}
+    .gt-card .top{min-height:44px}
     button.btn.sm{padding:9px 12px}
     .entry-toolbar{align-items:stretch!important}
     .weeknav{width:100%; display:grid; grid-template-columns:44px 1fr 44px; gap:6px}
     .weeknav .wk{min-width:0; align-self:center}
     .weeknav input[type=date]{grid-column:1/-1; width:100%}
-    .entry-tools{width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px}
+    .entry-tools{width:100%; display:grid; grid-template-columns:1fr; gap:8px}
     .entry-tools label{display:flex; align-items:center; gap:6px}
     .entry-tools select{min-width:0; width:100%}
     .save-wrap{grid-column:1/-1; justify-content:space-between}
@@ -357,7 +359,7 @@
     <details class="fold" id="volBgFold" style="display:none" ontoggle="try{localStorage.setItem('volBgOpen',this.open?'1':'0')}catch(e){}">
       <summary>Background checks needed<span class="pill" id="volBgCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">Growth Track grads</span></summary>
       <div class="card">
-        <p class="hint" style="margin:0 0 8px">People who finished all 3 Growth Track steps and don’t have a valid background check. <b>Order</b> opens their Planning Center profile in a new tab so you can order the check there, then marks them ordered here, checks “BG invite” on their Growth Track card, and emails them a heads-up from Zach. <b>Remove</b> takes them off this list.</p>
+        <p class="hint" style="margin:0 0 8px">People who finished all 3 Growth Track steps and don’t have a valid background check. <b>Order</b> opens their Planning Center profile in a new tab so you can order the check there, then marks them ordered here, checks “Background-check invite” on their Growth Track card, and emails them a heads-up from Zach. <b>Remove</b> takes them off this list.</p>
         <div id="volBgList"></div>
         <p class="hint" id="volBgDone" style="margin-bottom:0"></p>
       </div>
@@ -445,14 +447,16 @@
 
   <!-- ============ GROWTH TRACK ============ -->
   <section id="view-gt" style="display:none">
-    <div class="cards" id="gtStats"></div>
-    <details class="fold" id="gtContactFold" style="display:none" ontoggle="try{localStorage.setItem('gtContactOpen',this.open?'1':'0')}catch(e){}">
-      <summary>Who to contact<span class="pill" id="gtContactCount">0</span><span class="hint" style="margin:0 0 0 8px; font-weight:400">missing a step · this week or overdue</span></summary>
-      <div class="card">
-        <p class="hint" style="margin:0 0 8px">Anyone still missing a Growth Track step when a class is coming up this Sunday (Step 1 = 1st Sunday, Step 2 = 2nd, Step 3 = 3rd; steps can be taken in any order), plus anyone who finished all 3 without picking a team. Text them, then mark contacted or dismiss.</p>
-        <div id="gtContactList"></div>
+    <div class="card" id="gtContactCard" style="display:none">
+      <div class="row filter-row" style="align-items:center; margin-bottom:8px">
+        <h2 style="margin:0">Who to contact <span class="pill" id="gtContactCount">0</span></h2>
+        <span class="hint" style="margin:0">missing a step · this week or overdue</span>
+        <button class="btn ghost sm" style="margin-left:auto" onclick="exportGTContact()">Export CSV</button>
       </div>
-    </details>
+      <p class="hint" style="margin:0 0 8px">Anyone still missing a Growth Track step when a class is coming up this Sunday (Step 1 = 1st Sunday, Step 2 = 2nd, Step 3 = 3rd; steps can be taken in any order), plus anyone who finished all 3 without picking a team. Text them, then mark contacted or dismiss.</p>
+      <div id="gtContactList"></div>
+    </div>
+    <div class="cards" id="gtStats"></div>
     <div class="card">
       <h2>Growth Track by month <span class="pill">started vs. finished all 3 steps · by start month</span></h2>
       <div class="chartbox short"><canvas id="chGT"></canvas></div>
@@ -477,7 +481,7 @@
             <option value="old">Start date (oldest)</option>
           </select>
         </label>
-        <input id="gtSearch" placeholder="Search name, phone, email…" oninput="gtPage=1;renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
+        <input type="text" id="gtSearch" placeholder="Search name, phone, email…" oninput="gtPage=1;renderGTPeople()" style="padding:6px 8px; border:1px solid var(--line); border-radius:6px">
         <span style="margin-left:auto"></span>
         <button class="btn sm" id="gtAddBtn" onclick="addGTPerson()">+ Add person</button>
         <button class="btn ghost sm" onclick="exportGT()">Export CSV</button>
@@ -660,11 +664,18 @@ async function start(user){
     return;
   }
   if(myRole!=='admin' && myCampuses.size===1) entryCampusId=[...myCampuses][0];
+  else{
+    try{
+      const saved=localStorage.getItem('dm_entry_campus');
+      if(saved!==null && (saved==='' || (campuses.some(c=>c.id===saved) && (myRole==='admin'||myCampuses.has(saved)))))
+        entryCampusId=saved;
+    }catch(e){}
+  }
   document.getElementById('login').style.display='none';
   document.getElementById('topbar').style.display='';
   document.getElementById('app').style.display='';
   curWeek=iso(sundayOf(new Date()));
-  show('dash');
+  show(myRole==='counter'?'entry':'dash');
 }
 async function loadMeta(){
   const [{data:cs,error:e1},{data:ss,error:e2}]=await Promise.all([
@@ -867,12 +878,16 @@ window.addEventListener('beforeunload',e=>{
 /* ---------------- entry view ---------------- */
 function stepWeek(n){ const d=fromISO(curWeek); d.setDate(d.getDate()+7*n); curWeek=iso(d); renderEntry(); }
 function pickWeek(v){ if(v){ curWeek=iso(sundayOf(fromISO(v))); renderEntry(); } }
-function setEntryCampus(id){ entryCampusId=id; renderEntry(); }
+function setEntryCampus(id){
+  entryCampusId=id;
+  try{ localStorage.setItem('dm_entry_campus', id); }catch(e){}
+  renderEntry();
+}
 
 async function renderEntry(){
   const token=++entryRenderToken;
   const renderWeek=curWeek;
-  document.getElementById('weekLabel').textContent=fmtWeek(renderWeek);
+  document.getElementById('weekLabel').textContent=fmtWeek(renderWeek)+' · Youth '+fmtWed(renderWeek);
   document.getElementById('weekPicker').value=renderWeek;
   const campusSel=document.getElementById('entryCampusSel');
   if(entryCampusId && !campuses.some(c=>c.id===entryCampusId)) entryCampusId='';
@@ -895,20 +910,22 @@ async function renderEntry(){
       return;
     }
     c.services.forEach((svc,si)=>{
-      html+=`<tr><td class="campus">${esc(c.name)}</td><td class="svc">${esc(svc.label)}</td>`;
+      const wed=isWedService(svc);
+      html+=`<tr${wed?' class="youth-row"':''}><td class="campus">${esc(c.name)}</td><td class="svc">${esc(svc.label)}${wed?' · '+fmtWed(renderWeek):''}</td>`;
       METRICS.forEach((m,ci)=>{
         const v=getVal(renderWeek,svc.id,m.key);
-        html+=`<td><input inputmode="numeric" pattern="[0-9]*" maxlength="10" value="${v}" ${editable?'':'disabled'} data-r="${r}" data-c="${ci}" data-cid="${c.id}" data-sid="${svc.id}" data-m="${m.key}" aria-label="${esc(c.name+' '+svc.label+' '+m.label)}"></td>`;
+        const lab=wed&&m.key==='adults'?'Students':m.label;
+        html+=`<td>${wed&&m.key==='adults'?'<span class="metric-group">Students</span>':''}<input inputmode="numeric" pattern="[0-9]*" maxlength="10" value="${v}" ${editable?'':'disabled'} data-r="${r}" data-c="${ci}" data-cid="${c.id}" data-sid="${svc.id}" data-m="${m.key}" aria-label="${esc(c.name+' '+svc.label+' '+lab)}"></td>`;
       });
       html+='</tr>'; r++;
     });
     if(c.services.length>1){
-      html+=`<tr class="subtotal"><td colspan="2">${esc(c.name)} total</td>`;
+      html+=`<tr class="subtotal"><td colspan="2">${esc(c.name)} Sunday total</td>`;
       METRICS.forEach(m=>html+=`<td data-sub="${c.id}:${m.key}"></td>`);
       html+='</tr>';
     }
   });
-  html+=`<tr class="totals"><td colspan="2">${entryCampusId?'Selected campus':'All campuses'}</td>`;
+  html+=`<tr class="totals"><td colspan="2">${entryCampusId?'Selected campus (Sunday)':'All campuses (Sunday)'}</td>`;
   METRICS.forEach(m=>html+=`<td data-total="${m.key}"></td>`);
   html+='</tr></tbody>';
   tbl.innerHTML=html;
@@ -940,12 +957,16 @@ async function renderEntry(){
     });
   });
 }
+function isWedService(s){ return /\(wed(nesday)?\)/i.test((s&&s.label)||''); }
 function refreshTotals(tbl,week=curWeek,campusList=campuses){
   METRICS.forEach(m=>{
     let grand=0, grandHasValue=false;
     campusList.forEach(c=>{
       let sub=0, hasValue=false;
-      c.services.forEach(s=>{ const v=getVal(week,s.id,m.key); if(v!==''){ sub+=v; hasValue=true; } });
+      c.services.forEach(s=>{
+        if(isWedService(s)) return;   // Youth (Wed) stays out of Sunday totals
+        const v=getVal(week,s.id,m.key); if(v!==''){ sub+=v; hasValue=true; }
+      });
       const cell=tbl.querySelector(`td[data-sub="${c.id}:${m.key}"]`);
       if(cell) cell.textContent=hasValue?sub:'';
       grand+=sub;
@@ -988,24 +1009,36 @@ async function renderDash(){
   const salvTotal=(week,campusId)=>rows
     .filter(r=>r.week===week && (!campusId || svcById[r.service_id].campus.id===campusId))
     .reduce((a,r)=>a+(r.salvations||0),0);
+  const weekHas=(week,keys,campusId,includeWed=false)=>rows.some(r=>
+    r.week===week && (includeWed||!wedSvcIds.has(r.service_id)) && (!campusId || svcById[r.service_id].campus.id===campusId) && keys.some(k=>r[k]!=null));
+  const shownNum=(has,n)=>has?fmt(n):'not entered';
 
+  const thisWeek=weeks[weeks.length-1], lastWeek=weeks[weeks.length-2];
   const totals=weeks.map(w=>wTotal(w,attendKeys,cid));
-  const thisW=totals[totals.length-1], lastW=totals[totals.length-2]||0;
-  const nonzero=totals.filter(t=>t>0);
-  const avg=nonzero.length?Math.round(nonzero.reduce((a,b)=>a+b,0)/nonzero.length):0;
-  const salv=weeks.reduce((a,w)=>a+salvTotal(w,cid),0);
+  const thisW=totals[totals.length-1], lastW=lastWeek?wTotal(lastWeek,attendKeys,cid):0;
+  const hasThisAttend=weekHas(thisWeek,attendKeys,cid);
+  const hasLastAttend=lastWeek&&weekHas(lastWeek,attendKeys,cid);
+  const enteredWeeks=weeks.filter(w=>weekHas(w,attendKeys,cid));
+  const avg=enteredWeeks.length?Math.round(enteredWeeks.reduce((a,w)=>a+wTotal(w,attendKeys,cid),0)/enteredWeeks.length):0;
+  const thisSalv=salvTotal(thisWeek,cid);
+  const hasThisSalv=weekHas(thisWeek,['salvations'],cid,true);
+  const salvRange=weeks.reduce((a,w)=>a+salvTotal(w,cid),0);
+  const hasSalvRange=weeks.some(w=>weekHas(w,['salvations'],cid,true));
   const bapt=weeks.reduce((a,w)=>a+wTotal(w,['baptisms'],cid),0);
-  const vol=wTotal(weeks[weeks.length-1],['volunteers'],cid);
-  const volVals=weeks.map(w=>wTotal(w,['volunteers'],cid)).filter(v=>v>0);
-  const volAvg=volVals.length?Math.round(volVals.reduce((a,b)=>a+b,0)/volVals.length):0;
-  const d=lastW?Math.round((thisW-lastW)/lastW*100):null;
-  const deltaHtml=d==null?'<span class="delta flat">—</span>'
+  const hasBapt=weeks.some(w=>weekHas(w,['baptisms'],cid));
+  const vol=wTotal(thisWeek,['volunteers'],cid);
+  const hasVol=weekHas(thisWeek,['volunteers'],cid);
+  const volWeeks=weeks.filter(w=>weekHas(w,['volunteers'],cid));
+  const volAvg=volWeeks.length?Math.round(volWeeks.reduce((a,w)=>a+wTotal(w,['volunteers'],cid),0)/volWeeks.length):0;
+  const d=(hasThisAttend&&hasLastAttend&&lastW)?Math.round((thisW-lastW)/lastW*100):null;
+  const deltaHtml=!hasThisAttend?'<span class="delta flat">this week</span>'
+    :d==null?'<span class="delta flat">this week</span>'
     :`<span class="delta ${d>0?'up':d<0?'down':'flat'}">this week · ${d>0?'▲':d<0?'▼':''} ${Math.abs(d)}% vs last</span>`;
   document.getElementById('statCards').innerHTML=`
-    <div class="stat"><div class="lbl">Attendance${infoBtn('attend')}</div><div class="val">${fmt(thisW)}</div>${deltaHtml}</div>
-    <div class="stat"><div class="lbl">Weekly avg${infoBtn('attendAvg')}</div><div class="val">${fmt(avg)}</div><span class="delta flat">sanctuary + kids · ${nonzero.length} wks</span></div>
-    <div class="stat"><div class="lbl">Salvations${infoBtn('decisions')}</div><div class="val">${fmt(salv)}</div><span class="delta flat">${fmt(bapt)} baptisms</span></div>
-    <div class="stat"><div class="lbl">Volunteers${infoBtn('volunteers')}</div><div class="val">${fmt(vol)}</div><span class="delta flat">usher headcount · ${fmt(volAvg)} avg</span></div>`;
+    <div class="stat"><div class="lbl">Attendance${infoBtn('attend')}</div><div class="val">${shownNum(hasThisAttend,thisW)}</div>${deltaHtml}</div>
+    <div class="stat"><div class="lbl">Weekly avg${infoBtn('attendAvg')}</div><div class="val">${shownNum(!!enteredWeeks.length,avg)}</div><span class="delta flat">sanctuary + kids · ${enteredWeeks.length} wks</span></div>
+    <div class="stat"><div class="lbl">Salvations${infoBtn('decisions')}</div><div class="val">${shownNum(hasThisSalv,thisSalv)}</div><span class="delta flat">this week · ${shownNum(hasSalvRange,salvRange)} in last ${n} wks · ${shownNum(hasBapt,bapt)} baptisms</span></div>
+    <div class="stat"><div class="lbl">Volunteers${infoBtn('volunteers')}</div><div class="val">${shownNum(hasVol,vol)}</div><span class="delta flat">usher headcount${volWeeks.length?' · '+fmt(volAvg)+' avg':''}</span></div>`;
 
   const labels=weeks.map(w=>fromISO(w).toLocaleDateString(undefined,{month:'short',day:'numeric'}));
   const palette=['#4f46e5','#059669','#d97706','#dc2626','#0891b2','#7c3aed','#be185d','#4d7c0f'];
@@ -1017,8 +1050,8 @@ async function renderDash(){
   }))},{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
 
   mkChart('chDecisions','line',{labels,datasets:[
-    {label:'Salvations',data:weeks.map(w=>salvTotal(w,cid)),borderColor:'#4f46e5',backgroundColor:'#4f46e5',tension:.3},
-    {label:'Baptisms',data:weeks.map(w=>wTotal(w,['baptisms'],cid)),borderColor:'#059669',backgroundColor:'#059669',tension:.3}
+    {label:'Salvations',data:weeks.map(w=>weekHas(w,['salvations'],cid,true)?salvTotal(w,cid):null),borderColor:'#4f46e5',backgroundColor:'#4f46e5',tension:.3,spanGaps:true},
+    {label:'Baptisms',data:weeks.map(w=>weekHas(w,['baptisms'],cid)?wTotal(w,['baptisms'],cid):null),borderColor:'#059669',backgroundColor:'#059669',tension:.3,spanGaps:true}
   ]},{scales:{y:{beginAtZero:true,ticks:{precision:0}}}});
 
   mkChart('chCampus','bar',{labels:campuses.map(c=>c.name),datasets:[{
@@ -1045,10 +1078,10 @@ async function renderDash(){
   let html=`<thead><tr><th>Week</th><th>Attendance${infoBtn('attend')}<span class="metric-group">sanctuary + kids</span></th><th>Volunteers${infoBtn('volunteers')}</th><th>Salvations${infoBtn('salvations')}</th><th>Baptisms${infoBtn('baptisms')}</th></tr></thead><tbody>`;
   [...weeks].reverse().forEach(w=>{
     html+=`<tr><td class="campus">${fmtWeek(w)}</td>
-      <td style="text-align:center">${fmt(wTotal(w,attendKeys,cid))}</td>
-      <td style="text-align:center">${fmt(wTotal(w,['volunteers'],cid))}</td>
-      <td style="text-align:center">${fmt(salvTotal(w,cid))}</td>
-      <td style="text-align:center">${fmt(wTotal(w,['baptisms'],cid))}</td></tr>`;
+      <td style="text-align:center">${shownNum(weekHas(w,attendKeys,cid),wTotal(w,attendKeys,cid))}</td>
+      <td style="text-align:center">${shownNum(weekHas(w,['volunteers'],cid),wTotal(w,['volunteers'],cid))}</td>
+      <td style="text-align:center">${shownNum(weekHas(w,['salvations'],cid,true),salvTotal(w,cid))}</td>
+      <td style="text-align:center">${shownNum(weekHas(w,['baptisms'],cid),wTotal(w,['baptisms'],cid))}</td></tr>`;
   });
   document.getElementById('summaryTable').innerHTML=html+'</tbody>';
 
@@ -1072,17 +1105,20 @@ async function renderDash(){
       const wedSalv=(week)=>rows
         .filter(r=>r.week===week && wedSvcIds.has(r.service_id) && wedCampuses.some(c=>c.id===svcById[r.service_id].campus.id))
         .reduce((a,r)=>a+(r.salvations||0),0);
+      const wedHasSalv=(week)=>rows.some(r=>r.week===week && wedSvcIds.has(r.service_id) && wedCampuses.some(c=>c.id===svcById[r.service_id].campus.id) && r.salvations!=null);
+      const wedHasAttend=(week,campusId)=>rows.some(r=>r.week===week && wedSvcIds.has(r.service_id) && svcById[r.service_id].campus.id===campusId && attendKeys.some(k=>r[k]!=null));
       const showTotal=wedCampuses.length>1;
       let wh='<thead><tr><th>Week</th>'
         +wedCampuses.map(c=>`<th style="text-align:center">${esc(c.name)}</th>`).join('')
         +(showTotal?'<th style="text-align:center">Total</th>':'')+'<th style="text-align:center">Youth salvations</th></tr></thead><tbody>';
       wedPast.slice().reverse().forEach(w=>{
-        const vals=wedCampuses.map(c=>({has:wedHasRow(w,c.id),v:wedAt(w,c.id)}));
+        const vals=wedCampuses.map(c=>({has:wedHasRow(w,c.id),entered:wedHasAttend(w,c.id),v:wedAt(w,c.id)}));
         const tot=vals.reduce((a,b)=>a+b.v,0);
+        const anyRow=vals.some(x=>x.has), anyAttend=vals.some(x=>x.entered);
         wh+=`<tr><td class="campus">${fmtWed(w)}</td>`
-          +vals.map(x=>`<td style="text-align:center">${x.has?fmt(x.v):'—'}</td>`).join('')
-          +(showTotal?`<td style="text-align:center">${fmt(tot)}</td>`:'')
-          +`<td style="text-align:center">${vals.some(x=>x.has)?fmt(wedSalv(w)):'—'}</td></tr>`;
+          +vals.map(x=>`<td style="text-align:center">${x.has?(x.entered?fmt(x.v):'not entered'):'—'}</td>`).join('')
+          +(showTotal?`<td style="text-align:center">${anyRow?(anyAttend?fmt(tot):'not entered'):'—'}</td>`:'')
+          +`<td style="text-align:center">${anyRow?(wedHasSalv(w)?fmt(wedSalv(w)):'not entered'):'—'}</td></tr>`;
       });
       wedTable.innerHTML=wh+'</tbody>';
     }
@@ -1445,7 +1481,7 @@ async function renderGlance(){
 
 /* ---------------- Growth Track ---------------- */
 let gtRows=[], gtShown=[], gtOpen=new Set(), gtRenderToken=0;
-const GT_BOOLS=[['bg_invite','BG invite'],['added_slack','Slack'],['follow_up_wf','F/U WF'],['team_joined','Team']];
+const GT_BOOLS=[['bg_invite','Background-check invite'],['added_slack','Slack'],['follow_up_wf','Follow-up workflow'],['team_joined','Joined a team']];
 function gtCampusName(id){ const c=campuses.find(c=>c.id===id); return c?c.name:'—'; }
 function gtFmt(s){ return s?fromISO(s).toLocaleDateString(undefined,{month:'short',day:'numeric'}):''; }
 function gtDone(r){ return !!(r.step1_date&&r.step2_date&&r.step3_date); }
@@ -1482,7 +1518,9 @@ function renderGTChart(){
     {label:'Joined a team',data:keys.map(k=>by[k].t),backgroundColor:'#16a34a'}]});
 }
 const GT_PAGE_SIZE=25; let gtPage=1;
-function gtSteps(r){ return [r.step1_date,r.step2_date,r.step3_date].map((x,i)=>`<span class="stepb${x?' on':''}" title="${x?'Step '+(i+1)+': '+gtFmt(x):'Step '+(i+1)+' not yet'}">${x?'✓':''}${i+1}</span>`).join(''); }
+function gtStepLabel(n){ return 'Step '+n+' ('+['1st','2nd','3rd'][n-1]+' Sunday)'; }
+function gtPlainReason(s){ return String(s||'').replace(/\bStep (\d)\b/g,(_,n)=>gtStepLabel(+n)); }
+function gtSteps(r){ return [r.step1_date,r.step2_date,r.step3_date].map((x,i)=>`<span class="stepb${x?' on':''}" title="${x?gtStepLabel(i+1)+': '+gtFmt(x):gtStepLabel(i+1)+' not yet'}">${x?'✓':''}${i+1}</span>`).join(''); }
 function gtGoPage(n){ gtPage=n; renderGTPeople(); document.getElementById('gtCards').scrollIntoView({block:'start',behavior:'smooth'}); }
 function renderGTPeople(){
   const mode=document.getElementById('gtShowSel').value, sort=document.getElementById('gtSortSel').value;
@@ -1507,8 +1545,8 @@ function renderGTPeople(){
     const ed=canEdit(r.campus_id), open=gtOpen.has(r.id);
     cd+=`<div class="gt-card" data-id="${r.id}"><div class="top" onclick="toggleGT('${r.id}')" role="button" aria-expanded="${open}"><div><div class="nm">${open?'▾':'▸'} ${esc(r.name)}${myRole==='admin'&&r.bg_status==='needed'?'<span class="bg-tag never" title="On the Background checks needed list (Volunteers tab)">BG check needed</span>':''}</div>`
       +`<div class="sub">${esc([r.start_date&&('Started '+gtFmt(r.start_date)),allC&&gtCampusName(r.campus_id),r.team_joined&&(r.teams_served?('On a team: '+r.teams_served.split(',').map(t=>t.trim()).filter(Boolean).join(', ')):'On a team')].filter(Boolean).join(' · '))}</div></div><div style="white-space:nowrap">${gtSteps(r)}</div></div>`;
-    if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>Step 1 ${inp(r,'step1_date','date',ed)}</label>`
-      +`<label>Step 2 ${inp(r,'step2_date','date',ed)}</label><label>Step 3 ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
+    if(open) cd+=`<div class="ed"><label class="full">Name ${inp(r,'name','',ed)}</label><label>Start Sunday ${inp(r,'start_date','date',ed)}</label><label>${gtStepLabel(1)} ${inp(r,'step1_date','date',ed)}</label>`
+      +`<label>${gtStepLabel(2)} ${inp(r,'step2_date','date',ed)}</label><label>${gtStepLabel(3)} ${inp(r,'step3_date','date',ed)}</label><label>Table host ${inp(r,'table_host','',ed)}</label><label>Team preference ${inp(r,'team_preference','',ed)}</label>`
       +`<div class="full" style="display:flex;flex-wrap:wrap;gap:14px;padding:4px 0">${chk(r,ed)}</div>`
       +(myRole==='admin'&&r.bg_email_sent_at?`<div class="full hint" style="margin:0">BG heads-up email sent ${esc(bgDate(r.bg_email_sent_at))}${r.bg_email_to?' to '+esc(r.bg_email_to):''}</div>`:'')
       +`<div class="full" style="font-size:12.5px"><b>Teams served:</b> ${esc((r.teams_served||'').split(',').map(t=>t.trim()).filter(Boolean).join(', ')||'None yet')}</div>`
@@ -1592,21 +1630,10 @@ async function syncGTContact(only){
     const r=gtRows.find(x=>x.id===id); if(r) Object.assign(r, patch);
   }
 }
-function renderGTContact(){
-  const fold=document.getElementById('gtContactFold');
-  if(!fold) return;
+function gtContactList(){
   const cid=document.getElementById('gtCampusSel').value||'';
   const todayISO=gtISODate(new Date());
-  const need=gtRows.filter(r=>{
-    if(r.contact_status!=='needed') return false;
-    if(cid && r.campus_id!==cid) return false;
-    return true;
-  });
-  if(!need.length){ fold.style.display='none'; return; }
-  if(!fold.dataset.init){ fold.dataset.init='1'; let o='1'; try{ o=localStorage.getItem('gtContactOpen')||'1'; }catch(e){} fold.open=o!=='0'; }
-  fold.style.display='';
-  document.getElementById('gtContactCount').textContent=need.length;
-  const allC=!cid;
+  const need=gtRows.filter(r=>r.contact_status==='needed' && (!cid || r.campus_id===cid));
   need.sort((a,b)=>{
     const da=a.contact_due_date||'9999', db=b.contact_due_date||'9999';
     const ao=da<todayISO?0:1, bo=db<todayISO?0:1;
@@ -1614,17 +1641,28 @@ function renderGTContact(){
     if(da!==db) return da.localeCompare(db);
     return (a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'});
   });
+  return {need, cid, todayISO};
+}
+function renderGTContact(){
+  const card=document.getElementById('gtContactCard');
+  if(!card) return;
+  const {need, cid, todayISO}=gtContactList();
+  if(!need.length){ card.style.display='none'; return; }
+  card.style.display='';
+  document.getElementById('gtContactCount').textContent=need.length;
+  const allC=!cid;
   document.getElementById('gtContactList').innerHTML=need.map(r=>{
     const overdue=r.contact_due_date && r.contact_due_date<todayISO;
+    const reason=gtPlainReason(r.contact_reason);
     const dueLbl=r.contact_due_date?(r.contact_reason==='Needs team pick'?(overdue?'Overdue since '+gtFmt(r.contact_due_date):'Due '+gtFmt(r.contact_due_date)):'Class '+gtFmt(r.contact_due_date)):'';
-    const lastStep=r.step2_date&&!r.step3_date?('Step 2 · '+gtFmt(r.step2_date)):r.step1_date&&!r.step2_date?('Step 1 · '+gtFmt(r.step1_date)):r.step3_date?('Step 3 · '+gtFmt(r.step3_date)):'';
-    const sub=[r.contact_reason, lastStep, dueLbl, r.phone, allC&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
+    const lastStep=r.step2_date&&!r.step3_date?(gtStepLabel(2)+' · '+gtFmt(r.step2_date)):r.step1_date&&!r.step2_date?(gtStepLabel(1)+' · '+gtFmt(r.step1_date)):r.step3_date?(gtStepLabel(3)+' · '+gtFmt(r.step3_date)):'';
+    const sub=[reason, lastStep, dueLbl, r.phone||'No phone', allC&&gtCampusName(r.campus_id)].filter(Boolean).join(' · ');
     const tagCls=overdue?' overdue':' due';
     const ed=canEdit(r.campus_id);
     const acts=ed
       ?`<div class="acts"><button class="btn sm" onclick="markGTContacted('${r.id}')">Mark contacted</button><button class="btn ghost sm" onclick="dismissGTContact('${r.id}')">Dismiss</button><button class="btn ghost sm" onclick="openGTFromContact('${r.id}')">Open</button></div>`
       :`<div class="acts"><button class="btn ghost sm" onclick="openGTFromContact('${r.id}')">Open</button></div>`;
-    return `<div class="bg-row"><div style="min-width:0"><div class="nm">${esc(r.name)}${r.contact_reason?`<span class="bg-tag${tagCls}">${esc(r.contact_reason)}</span>`:''}</div>`
+    return `<div class="bg-row"><div style="min-width:0"><div class="nm">${esc(r.name)}${reason?`<span class="bg-tag${tagCls}">${esc(reason)}</span>`:''}${r.phone?'':'<span class="bg-tag never">No phone</span>'}</div>`
       +`<div class="sub">${esc(sub)}</div></div>${acts}</div>`;
   }).join('');
 }
@@ -1767,9 +1805,20 @@ async function deleteGT(id){
   gtRows=gtRows.filter(x=>x.id!==id); toast('Deleted');
   renderGTStats(); renderGTChart(); renderGTPeople(); renderGTContact();
 }
+function csvSafe(v){ let t=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; }
+function exportGTContact(){
+  const {need}=gtContactList();
+  if(!need.length){ toast('Nothing to export in this view'); return; }
+  const rows=[['name','phone','reason','due_date','status']];
+  need.forEach(r=>rows.push([r.name,r.phone,gtPlainReason(r.contact_reason),r.contact_due_date,r.contact_status]));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(csvSafe).join(',')).join('\n')],{type:'text/csv'}));
+  a.download='destinymetrics-who-to-contact-'+iso(new Date())+'.csv';
+  a.click(); toast('CSV downloaded');
+}
 function exportGT(){
   if(!gtShown.length){ toast('Nothing to export in this view'); return; }
-  const safe=v=>{ let t=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
+  const safe=csvSafe;
   const f=['start_date','name','phone','email','birth_date','address','children','table_host','step1_date','step2_date','step3_date','gifts','team_preference','bg_invite','added_slack','follow_up_wf','team_joined','notes','question','source'];
   const rows=[['campus',...f]]; gtShown.forEach(r=>rows.push([gtCampusName(r.campus_id),...f.map(k=>r[k])]));
   const a=document.createElement('a');
